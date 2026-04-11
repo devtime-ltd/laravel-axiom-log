@@ -55,7 +55,7 @@ Log::channel('axiom')->info('something happened', ['key' => 'value']);
 
 Included is an optional `LogRequest` middleware that logs structured request data (method, URL, status, duration, query stats, memory). It can be used with, or independently of, the log handler.
 
-![Request log entries in Axiom](.github/assets/request-log-example.png)
+![Request log entries in Axiom](https://raw.githubusercontent.com/devtime-ltd/laravel-axiom-log/main/.github/assets/request-log-example.png)
 
 ### Setting up request logging middleware
 

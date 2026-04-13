@@ -17,6 +17,7 @@ Add a log channel to your `config/logging.php`:
 ```php
 'axiom' => [
     'driver' => 'monolog',
+    'level' => env('LOG_LEVEL', 'debug'),
     'handler' => \DevtimeLtd\LaravelAxiomLog\AxiomHandler::class,
     'handler_with' => [
         'apiToken' => env('AXIOM_LOG_TOKEN'),
@@ -39,6 +40,7 @@ Need multiple Axiom channels with different datasets? Just define more entries:
 ```php
 'axiom-requests' => [
     'driver' => 'monolog',
+    'level' => env('LOG_LEVEL', 'debug'),
     'handler' => \DevtimeLtd\LaravelAxiomLog\AxiomHandler::class,
     'handler_with' => [
         'apiToken' => env('AXIOM_LOG_TOKEN'),
@@ -48,6 +50,7 @@ Need multiple Axiom channels with different datasets? Just define more entries:
 ],
 'axiom-activity' => [
     'driver' => 'monolog',
+    'level' => env('LOG_LEVEL', 'debug'),
     'handler' => \DevtimeLtd\LaravelAxiomLog\AxiomHandler::class,
     'handler_with' => [
         'apiToken' => env('AXIOM_LOG_TOKEN'),

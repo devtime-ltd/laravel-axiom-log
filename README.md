@@ -116,6 +116,40 @@ Can also pass multiple channels (e.g. `axiom,betterstack`) for logging to multip
 
 Publish the config file with `php artisan vendor:publish --tag=log-request`. Options in `config/log-request.php`:
 
+#### Log message
+
+The log message used for request entries. Default: `'http.request'`.
+
+```php
+'message' => env('LOG_REQUESTS_MESSAGE', 'http.request'),
+```
+
+This makes it easy to distinguish request logs from application logs (e.g. `Log::error()`) when they share the same Axiom dataset.
+
+You can also override the message at runtime via `LogRequest::message()` in your `AppServiceProvider::boot()` — either a fixed string or a callback:
+
+```php
+use DevtimeLtd\LaravelAxiomLog\LogRequest;
+
+// Fixed string
+LogRequest::message('api.request');
+
+// Dynamic based on request
+LogRequest::message(function ($request, $response) {
+    return $request->is('api/*') ? 'api.request' : 'web.request';
+});
+```
+
+This takes precedence over the config value. Pass `null` to revert to the config default.
+
+#### Log level
+
+The PSR-3 log level for request entries. Default: `'info'`.
+
+```php
+'level' => env('LOG_REQUESTS_LEVEL', 'info'),
+```
+
 #### Database query collection
 
 Disable query measurement to skip the `DB::listen()` overhead:

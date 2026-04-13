@@ -23,6 +23,9 @@ class LogRequest
     /** @var (Closure(Request, ?Response, array<string, mixed>): array<string, mixed>)|null */
     private static ?Closure $extendCallback = null;
 
+    /** @var (Closure(Request, ?Response): string)|string|null */
+    private static Closure|string|null $messageOverride = null;
+
     private int $queryCount = 0;
 
     private float $queryTotalMs = 0;
@@ -51,6 +54,17 @@ class LogRequest
     public static function extend(?Closure $callback): void
     {
         static::$extendCallback = $callback;
+    }
+
+    /**
+     * Set the log message to a fixed string or a callback that receives
+     * the request and response. Pass null to revert to the config default.
+     *
+     * @param  (Closure(Request, ?Response): string)|string|null  $message
+     */
+    public static function message(Closure|string|null $message): void
+    {
+        static::$messageOverride = $message;
     }
 
     public function handle(Request $request, Closure $next): Response
@@ -94,6 +108,8 @@ class LogRequest
     private function log(Request $request, ?Response $response, float $elapsed): void
     {
         try {
+            $level = config('log-request.level', 'info');
+
             $measurements = [
                 'duration_ms' => round($elapsed * 1000, 2),
                 'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2),
@@ -118,12 +134,20 @@ class LogRequest
                 $entry = (static::$extendCallback)($request, $response, $entry);
             }
 
+            $message = static::$messageOverride instanceof Closure
+                ? (static::$messageOverride)($request, $response)
+                : (static::$messageOverride ?? config('log-request.message', 'http.request'));
+
             $channels = explode(',', config('log-request.channel'));
             $logger = count($channels) === 1
                 ? Log::channel($channels[0])
                 : Log::stack($channels);
-            $logger->info('request', $entry);
-        } catch (\Throwable) {
+            $logger->log($level, $message, $entry);
+        } catch (\Throwable $e) {
+            try {
+                Log::error('[LogRequest] '.$e->getMessage());
+            } catch (\Throwable) {
+            }
         }
     }
 

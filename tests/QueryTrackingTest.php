@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 beforeEach(function () {
     LogRequest::using(null);
     LogRequest::extend(null);
+    LogRequest::message(null);
 
     config([
         'database.default' => 'testing',
@@ -29,9 +30,9 @@ it('counts database queries', function () {
     config(['log-request.channel' => 'test-channel']);
 
     $channel = Mockery::mock();
-    $channel->shouldReceive('info')
+    $channel->shouldReceive('log')
         ->once()
-        ->withArgs(function (string $message, array $context) {
+        ->withArgs(function (string $level, string $message, array $context) {
             return $context['query_count'] === 3
                 && $context['query_total_ms'] > 0;
         });
@@ -56,9 +57,9 @@ it('captures slow queries above threshold', function () {
     ]);
 
     $channel = Mockery::mock();
-    $channel->shouldReceive('info')
+    $channel->shouldReceive('log')
         ->once()
-        ->withArgs(function (string $message, array $context) {
+        ->withArgs(function (string $level, string $message, array $context) {
             return $context['query_count'] === 1
                 && count($context['slow_queries']) === 1
                 && is_string($context['slow_queries'][0]['sql'])
@@ -83,9 +84,9 @@ it('does not capture slow queries when threshold is null', function () {
     ]);
 
     $channel = Mockery::mock();
-    $channel->shouldReceive('info')
+    $channel->shouldReceive('log')
         ->once()
-        ->withArgs(function (string $message, array $context) {
+        ->withArgs(function (string $level, string $message, array $context) {
             return $context['query_count'] === 1
                 && ! array_key_exists('slow_queries', $context);
         });
@@ -108,9 +109,9 @@ it('does not count queries when collect_queries is disabled', function () {
     ]);
 
     $channel = Mockery::mock();
-    $channel->shouldReceive('info')
+    $channel->shouldReceive('log')
         ->once()
-        ->withArgs(function (string $message, array $context) {
+        ->withArgs(function (string $level, string $message, array $context) {
             return ! array_key_exists('query_count', $context)
                 && ! array_key_exists('query_total_ms', $context)
                 && ! array_key_exists('slow_queries', $context);

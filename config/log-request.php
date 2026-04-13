@@ -15,6 +15,10 @@ return [
 
     'channel' => env('LOG_REQUESTS_CHANNEL'),
 
+    'message' => env('LOG_REQUESTS_MESSAGE', 'http.request'),
+
+    'level' => env('LOG_REQUESTS_LEVEL', 'info'),
+
     'obfuscate_ip' => false, // false or callable, e.g. ObfuscateIp::level(2)
 
     'collect_queries' => true,

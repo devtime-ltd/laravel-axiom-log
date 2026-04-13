@@ -10,16 +10,18 @@ describe('request logging', function () {
     beforeEach(function () {
         LogRequest::using(null);
         LogRequest::extend(null);
+        LogRequest::message(null);
     });
 
     it('logs request details to the configured channel', function () {
         config(['log-request.channel' => 'test-channel']);
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')
+        $channel->shouldReceive('log')
             ->once()
-            ->withArgs(function (string $message, array $context) {
-                return $message === 'request'
+            ->withArgs(function (string $level, string $message, array $context) {
+                return $level === 'info'
+                    && $message === 'http.request'
                     && $context['method'] === 'GET'
                     && $context['path'] === 'test'
                     && $context['status'] === 200
@@ -50,9 +52,9 @@ describe('request logging', function () {
         config(['log-request.channel' => 'test-channel']);
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')
+        $channel->shouldReceive('log')
             ->once()
-            ->withArgs(fn (string $message, array $context) => ! array_key_exists('slow_queries', $context));
+            ->withArgs(fn (string $level, string $message, array $context) => ! array_key_exists('slow_queries', $context));
 
         Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
 
@@ -77,10 +79,10 @@ describe('request logging', function () {
         config(['log-request.channel' => 'test-channel']);
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')
+        $channel->shouldReceive('log')
             ->once()
-            ->withArgs(function (string $message, array $context) {
-                return $message === 'request'
+            ->withArgs(function (string $level, string $message, array $context) {
+                return $message === 'http.request'
                     && $context['status'] === null;
             });
 
@@ -99,9 +101,9 @@ describe('request logging', function () {
         config(['log-request.channel' => 'test-channel']);
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')
+        $channel->shouldReceive('log')
             ->once()
-            ->withArgs(fn (string $message, array $context) => $context['duration_ms'] >= 50);
+            ->withArgs(fn (string $level, string $message, array $context) => $context['duration_ms'] >= 50);
 
         Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
 
@@ -118,9 +120,9 @@ describe('request logging', function () {
         config(['log-request.channel' => 'test-channel']);
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')
+        $channel->shouldReceive('log')
             ->once()
-            ->withArgs(function (string $message, array $context) {
+            ->withArgs(function (string $level, string $message, array $context) {
                 return $context['method'] === 'POST'
                     && $context['url'] === 'http://localhost/users?page=2'
                     && $context['path'] === 'users';
@@ -147,7 +149,7 @@ describe('request logging', function () {
         config(['log-request.channel' => 'test-channel']);
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')->once();
+        $channel->shouldReceive('log')->once();
 
         Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
 
@@ -162,7 +164,7 @@ describe('request logging', function () {
         config(['log-request.channel' => 'channel-a,channel-b']);
 
         $stack = Mockery::mock();
-        $stack->shouldReceive('info')->once()->with('request', Mockery::type('array'));
+        $stack->shouldReceive('log')->once()->with('info', 'http.request', Mockery::type('array'));
 
         Log::shouldReceive('stack')->with(['channel-a', 'channel-b'])->andReturn($stack);
 
@@ -202,6 +204,7 @@ describe('extend callback', function () {
     beforeEach(function () {
         LogRequest::using(null);
         LogRequest::extend(null);
+        LogRequest::message(null);
     });
 
     it('adds fields to the default entry', function () {
@@ -214,9 +217,9 @@ describe('extend callback', function () {
         });
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')
+        $channel->shouldReceive('log')
             ->once()
-            ->withArgs(fn (string $message, array $context) => $context['custom'] === 'value');
+            ->withArgs(fn (string $level, string $message, array $context) => $context['custom'] === 'value');
 
         Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
 
@@ -237,9 +240,9 @@ describe('extend callback', function () {
         LogRequest::extend(null);
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')
+        $channel->shouldReceive('log')
             ->once()
-            ->withArgs(fn (string $message, array $context) => ! array_key_exists('should_not_exist', $context));
+            ->withArgs(fn (string $level, string $message, array $context) => ! array_key_exists('should_not_exist', $context));
 
         Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
 
@@ -253,6 +256,7 @@ describe('using callback', function () {
     beforeEach(function () {
         LogRequest::using(null);
         LogRequest::extend(null);
+        LogRequest::message(null);
     });
 
     it('replaces the default entry', function () {
@@ -266,9 +270,9 @@ describe('using callback', function () {
         });
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')
+        $channel->shouldReceive('log')
             ->once()
-            ->withArgs(function (string $message, array $context) {
+            ->withArgs(function (string $level, string $message, array $context) {
                 return $context['custom_method'] === 'GET'
                     && is_float($context['custom_duration'])
                     && ! array_key_exists('url', $context);
@@ -295,9 +299,9 @@ describe('using callback', function () {
         });
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')
+        $channel->shouldReceive('log')
             ->once()
-            ->withArgs(fn (string $message, array $context) => $context['method'] === 'GET' && $context['extra'] === 'value');
+            ->withArgs(fn (string $level, string $message, array $context) => $context['method'] === 'GET' && $context['extra'] === 'value');
 
         Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
 
@@ -320,9 +324,9 @@ describe('using callback', function () {
         });
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')
+        $channel->shouldReceive('log')
             ->once()
-            ->withArgs(fn (string $message, array $context) => $context['has_query_count'] === false && $context['has_duration'] === true);
+            ->withArgs(fn (string $level, string $message, array $context) => $context['has_query_count'] === false && $context['has_duration'] === true);
 
         Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
 
@@ -336,6 +340,7 @@ describe('config options', function () {
     beforeEach(function () {
         LogRequest::using(null);
         LogRequest::extend(null);
+        LogRequest::message(null);
     });
 
     it('masks IP when obfuscate_ip is a callable', function () {
@@ -345,9 +350,9 @@ describe('config options', function () {
         ]);
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')
+        $channel->shouldReceive('log')
             ->once()
-            ->withArgs(fn (string $message, array $context) => $context['ip'] === '127.0.0.0');
+            ->withArgs(fn (string $level, string $message, array $context) => $context['ip'] === '127.0.0.0');
 
         Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
 
@@ -363,15 +368,71 @@ describe('config options', function () {
         ]);
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')
+        $channel->shouldReceive('log')
             ->once()
-            ->withArgs(fn (string $message, array $context) => $context['ip'] === 'redacted');
+            ->withArgs(fn (string $level, string $message, array $context) => $context['ip'] === 'redacted');
 
         Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
 
         $middleware = new LogRequest;
         $request = Request::create('/test');
         $middleware->handle($request, fn () => new Response('OK', 200));
+    });
+
+    it('uses message from config', function () {
+        config([
+            'log-request.channel' => 'test-channel',
+            'log-request.message' => 'custom.request',
+        ]);
+
+        $channel = Mockery::mock();
+        $channel->shouldReceive('log')
+            ->once()
+            ->withArgs(fn (string $level, string $message, array $context) => $message === 'custom.request');
+
+        Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
+
+        $middleware = new LogRequest;
+        $request = Request::create('/test');
+        $middleware->handle($request, fn () => new Response('OK', 200));
+    });
+
+    it('uses level from config', function () {
+        config([
+            'log-request.channel' => 'test-channel',
+            'log-request.level' => 'debug',
+        ]);
+
+        $channel = Mockery::mock();
+        $channel->shouldReceive('log')
+            ->once()
+            ->withArgs(fn (string $level, string $message, array $context) => $level === 'debug');
+
+        Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
+
+        $middleware = new LogRequest;
+        $request = Request::create('/test');
+        $middleware->handle($request, fn () => new Response('OK', 200));
+    });
+
+    it('reports invalid log level to default channel', function () {
+        config([
+            'log-request.channel' => 'test-channel',
+            'log-request.level' => 'warnn',
+        ]);
+
+        $channel = Mockery::mock();
+        $channel->shouldReceive('log')
+            ->andThrow(new \Psr\Log\InvalidArgumentException('Level "warnn" is not defined'));
+
+        Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
+        Log::shouldReceive('error')->once()->with(\Mockery::pattern('/warnn/'));
+
+        $middleware = new LogRequest;
+        $request = Request::create('/test');
+        $response = $middleware->handle($request, fn () => new Response('OK', 200));
+
+        expect($response->getStatusCode())->toBe(200);
     });
 
     it('omits query fields when collect_queries is disabled', function () {
@@ -381,14 +442,113 @@ describe('config options', function () {
         ]);
 
         $channel = Mockery::mock();
-        $channel->shouldReceive('info')
+        $channel->shouldReceive('log')
             ->once()
-            ->withArgs(function (string $message, array $context) {
+            ->withArgs(function (string $level, string $message, array $context) {
                 return ! array_key_exists('query_count', $context)
                     && ! array_key_exists('query_total_ms', $context)
                     && ! array_key_exists('slow_queries', $context)
                     && is_float($context['duration_ms']);
             });
+
+        Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
+
+        $middleware = new LogRequest;
+        $request = Request::create('/test');
+        $middleware->handle($request, fn () => new Response('OK', 200));
+    });
+});
+
+describe('message callback', function () {
+    beforeEach(function () {
+        LogRequest::using(null);
+        LogRequest::extend(null);
+        LogRequest::message(null);
+    });
+
+    it('uses the message callback when set', function () {
+        config(['log-request.channel' => 'test-channel']);
+
+        LogRequest::message(fn (Request $request, ?Response $response) => 'api.request');
+
+        $channel = Mockery::mock();
+        $channel->shouldReceive('log')
+            ->once()
+            ->withArgs(fn (string $level, string $message, array $context) => $message === 'api.request');
+
+        Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
+
+        $middleware = new LogRequest;
+        $request = Request::create('/test');
+        $middleware->handle($request, fn () => new Response('OK', 200));
+    });
+
+    it('receives request and response in the callback', function () {
+        config(['log-request.channel' => 'test-channel']);
+
+        LogRequest::message(function (Request $request, ?Response $response) {
+            return $request->is('api/*') ? 'api.request' : 'web.request';
+        });
+
+        $channel = Mockery::mock();
+        $channel->shouldReceive('log')
+            ->once()
+            ->withArgs(fn (string $level, string $message, array $context) => $message === 'api.request');
+
+        Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
+
+        $middleware = new LogRequest;
+        $request = Request::create('/api/users');
+        $middleware->handle($request, fn () => new Response('OK', 200));
+    });
+
+    it('accepts a string', function () {
+        config(['log-request.channel' => 'test-channel']);
+
+        LogRequest::message('static.message');
+
+        $channel = Mockery::mock();
+        $channel->shouldReceive('log')
+            ->once()
+            ->withArgs(fn (string $level, string $message, array $context) => $message === 'static.message');
+
+        Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
+
+        $middleware = new LogRequest;
+        $request = Request::create('/test');
+        $middleware->handle($request, fn () => new Response('OK', 200));
+    });
+
+    it('overrides config when callback is set', function () {
+        config([
+            'log-request.channel' => 'test-channel',
+            'log-request.message' => 'from.config',
+        ]);
+
+        LogRequest::message(fn (Request $request, ?Response $response) => 'from.callback');
+
+        $channel = Mockery::mock();
+        $channel->shouldReceive('log')
+            ->once()
+            ->withArgs(fn (string $level, string $message, array $context) => $message === 'from.callback');
+
+        Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
+
+        $middleware = new LogRequest;
+        $request = Request::create('/test');
+        $middleware->handle($request, fn () => new Response('OK', 200));
+    });
+
+    it('falls back to config after message(null)', function () {
+        config(['log-request.channel' => 'test-channel']);
+
+        LogRequest::message(fn (Request $request, ?Response $response) => 'custom');
+        LogRequest::message(null);
+
+        $channel = Mockery::mock();
+        $channel->shouldReceive('log')
+            ->once()
+            ->withArgs(fn (string $level, string $message, array $context) => $message === 'http.request');
 
         Log::shouldReceive('channel')->with('test-channel')->andReturn($channel);
 

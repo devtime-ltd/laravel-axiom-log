@@ -58,11 +58,16 @@ class IntegrationTest extends TestCase
         DB::table('users')->insert(['name' => 'Alice']);
     }
 
-    private function loggedEntry(): array
+    private function loggedRecord(): \Monolog\LogRecord
     {
         $handler = app('log')->channel('test-axiom')->getLogger()->getHandlers()[0];
 
-        return $handler->getRecords()[0]->context;
+        return $handler->getRecords()[0];
+    }
+
+    private function loggedEntry(): array
+    {
+        return $this->loggedRecord()->context;
     }
 
     public function test_logs_a_successful_request(): void
@@ -161,5 +166,39 @@ class IntegrationTest extends TestCase
         $this->assertTrue($entry['only_this']);
         $this->assertIsFloat($entry['duration']);
         $this->assertArrayNotHasKey('method', $entry);
+    }
+
+    public function test_default_message_is_http_request(): void
+    {
+        $this->get('/hello')->assertOk();
+
+        $this->assertSame('http.request', $this->loggedRecord()->message);
+    }
+
+    public function test_message_is_configurable(): void
+    {
+        config(['log-request.message' => 'custom.request']);
+
+        $this->get('/hello')->assertOk();
+
+        $this->assertSame('custom.request', $this->loggedRecord()->message);
+    }
+
+    public function test_message_callback_overrides_config(): void
+    {
+        LogRequest::message(fn ($request, $response) => 'callback.request');
+
+        $this->get('/hello')->assertOk();
+
+        $this->assertSame('callback.request', $this->loggedRecord()->message);
+    }
+
+    public function test_level_is_configurable(): void
+    {
+        config(['log-request.level' => 'debug']);
+
+        $this->get('/hello')->assertOk();
+
+        $this->assertSame('debug', $this->loggedRecord()->level->toPsrLogLevel());
     }
 }

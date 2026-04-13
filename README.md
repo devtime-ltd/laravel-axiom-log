@@ -22,6 +22,7 @@ Add a log channel to your `config/logging.php`:
         'apiToken' => env('AXIOM_LOG_TOKEN'),
         'dataset'  => env('AXIOM_LOG_DATASET'),
     ],
+    'processors' => [PsrLogMessageProcessor::class],
 ],
 ```
 
@@ -41,8 +42,9 @@ Need multiple Axiom channels with different datasets? Just define more entries:
     'handler' => \DevtimeLtd\LaravelAxiomLog\AxiomHandler::class,
     'handler_with' => [
         'apiToken' => env('AXIOM_LOG_TOKEN'),
-        'dataset'  => 'acme_requests_log'
+        'dataset'  => 'acme_requests_log',
     ],
+    'processors' => [PsrLogMessageProcessor::class],
 ],
 'axiom-activity' => [
     'driver' => 'monolog',
@@ -51,6 +53,7 @@ Need multiple Axiom channels with different datasets? Just define more entries:
         'apiToken' => env('AXIOM_LOG_TOKEN'),
         'dataset'  => 'acme_activity_log',
     ],
+    'processors' => [PsrLogMessageProcessor::class],
 ],
 ```
 

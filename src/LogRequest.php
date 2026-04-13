@@ -55,14 +55,14 @@ class LogRequest
 
     public function handle(Request $request, Closure $next): Response
     {
-        if (! config('axiom.request_logging.channel')) {
+        if (! config('log-request.channel')) {
             return $next($request);
         }
 
         $start = microtime(true);
 
-        if (config('axiom.request_logging.collect_queries', self::DEFAULT_COLLECT_QUERIES)) {
-            $slowThreshold = config('axiom.request_logging.slow_query_threshold', self::DEFAULT_SLOW_QUERY_THRESHOLD);
+        if (config('log-request.collect_queries', self::DEFAULT_COLLECT_QUERIES)) {
+            $slowThreshold = config('log-request.slow_query_threshold', self::DEFAULT_SLOW_QUERY_THRESHOLD);
 
             DB::listen(function (QueryExecuted $query) use ($slowThreshold) {
                 $this->queryCount++;
@@ -99,7 +99,7 @@ class LogRequest
                 'memory_peak_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2),
             ];
 
-            if (config('axiom.request_logging.collect_queries', self::DEFAULT_COLLECT_QUERIES)) {
+            if (config('log-request.collect_queries', self::DEFAULT_COLLECT_QUERIES)) {
                 $measurements['query_count'] = $this->queryCount;
                 $measurements['query_total_ms'] = round($this->queryTotalMs, 2);
 
@@ -118,7 +118,7 @@ class LogRequest
                 $entry = (static::$extendCallback)($request, $response, $entry);
             }
 
-            $channels = explode(',', config('axiom.request_logging.channel'));
+            $channels = explode(',', config('log-request.channel'));
             $logger = count($channels) === 1
                 ? Log::channel($channels[0])
                 : Log::stack($channels);
@@ -133,7 +133,7 @@ class LogRequest
     private function buildEntry(Request $request, ?Response $response, array $measurements): array
     {
         $ip = $request->ip();
-        $maskIp = config('axiom.request_logging.obfuscate_ip');
+        $maskIp = config('log-request.obfuscate_ip');
 
         if ($maskIp) {
             $ip = call_user_func($maskIp, $ip);

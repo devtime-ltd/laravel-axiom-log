@@ -12,7 +12,7 @@ class IntegrationTest extends TestCase
 {
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('axiom.request_logging.channel', 'test-axiom');
+        $app['config']->set('log-request.channel', 'test-axiom');
         $app['config']->set('logging.channels.test-axiom', [
             'driver' => 'monolog',
             'handler' => TestHandler::class,
@@ -121,7 +121,7 @@ class IntegrationTest extends TestCase
 
     public function test_obfuscates_ip(): void
     {
-        config(['axiom.request_logging.obfuscate_ip' => ObfuscateIp::level(1)]);
+        config(['log-request.obfuscate_ip' => ObfuscateIp::level(1)]);
 
         $this->get('/hello')->assertOk();
 

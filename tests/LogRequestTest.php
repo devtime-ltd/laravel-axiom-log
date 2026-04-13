@@ -13,7 +13,7 @@ describe('request logging', function () {
     });
 
     it('logs request details to the configured channel', function () {
-        config(['axiom.request_logging.channel' => 'test-channel']);
+        config(['log-request.channel' => 'test-channel']);
 
         $channel = Mockery::mock();
         $channel->shouldReceive('info')
@@ -37,7 +37,7 @@ describe('request logging', function () {
     });
 
     it('does not log when request channel is not configured', function () {
-        config(['axiom.request_logging.channel' => null]);
+        config(['log-request.channel' => null]);
 
         Log::shouldReceive('channel')->never();
 
@@ -47,7 +47,7 @@ describe('request logging', function () {
     });
 
     it('omits slow_queries key when there are none', function () {
-        config(['axiom.request_logging.channel' => 'test-channel']);
+        config(['log-request.channel' => 'test-channel']);
 
         $channel = Mockery::mock();
         $channel->shouldReceive('info')
@@ -62,7 +62,7 @@ describe('request logging', function () {
     });
 
     it('preserves the response from the next handler', function () {
-        config(['axiom.request_logging.channel' => null]);
+        config(['log-request.channel' => null]);
 
         $middleware = new LogRequest;
         $request = Request::create('/');
@@ -74,7 +74,7 @@ describe('request logging', function () {
     });
 
     it('still logs when downstream throws', function () {
-        config(['axiom.request_logging.channel' => 'test-channel']);
+        config(['log-request.channel' => 'test-channel']);
 
         $channel = Mockery::mock();
         $channel->shouldReceive('info')
@@ -96,7 +96,7 @@ describe('request logging', function () {
     });
 
     it('measures request duration', function () {
-        config(['axiom.request_logging.channel' => 'test-channel']);
+        config(['log-request.channel' => 'test-channel']);
 
         $channel = Mockery::mock();
         $channel->shouldReceive('info')
@@ -115,7 +115,7 @@ describe('request logging', function () {
     });
 
     it('logs the full url and method', function () {
-        config(['axiom.request_logging.channel' => 'test-channel']);
+        config(['log-request.channel' => 'test-channel']);
 
         $channel = Mockery::mock();
         $channel->shouldReceive('info')
@@ -134,7 +134,7 @@ describe('request logging', function () {
     });
 
     it('does not log when channel is empty string', function () {
-        config(['axiom.request_logging.channel' => '']);
+        config(['log-request.channel' => '']);
 
         Log::shouldReceive('channel')->never();
 
@@ -144,7 +144,7 @@ describe('request logging', function () {
     });
 
     it('re-throws downstream exceptions', function () {
-        config(['axiom.request_logging.channel' => 'test-channel']);
+        config(['log-request.channel' => 'test-channel']);
 
         $channel = Mockery::mock();
         $channel->shouldReceive('info')->once();
@@ -159,7 +159,7 @@ describe('request logging', function () {
     });
 
     it('uses Log::stack when multiple channels are configured', function () {
-        config(['axiom.request_logging.channel' => 'channel-a,channel-b']);
+        config(['log-request.channel' => 'channel-a,channel-b']);
 
         $stack = Mockery::mock();
         $stack->shouldReceive('info')->once()->with('request', Mockery::type('array'));
@@ -172,7 +172,7 @@ describe('request logging', function () {
     });
 
     it('returns the response even if logging fails', function () {
-        config(['axiom.request_logging.channel' => 'broken']);
+        config(['log-request.channel' => 'broken']);
 
         Log::shouldReceive('channel')->with('broken')->andThrow(new RuntimeException('log broken'));
 
@@ -186,7 +186,7 @@ describe('request logging', function () {
     });
 
     it('re-throws the original exception even if logging fails', function () {
-        config(['axiom.request_logging.channel' => 'broken']);
+        config(['log-request.channel' => 'broken']);
 
         Log::shouldReceive('channel')->with('broken')->andThrow(new RuntimeException('log broken'));
 
@@ -205,7 +205,7 @@ describe('extend callback', function () {
     });
 
     it('adds fields to the default entry', function () {
-        config(['axiom.request_logging.channel' => 'test-channel']);
+        config(['log-request.channel' => 'test-channel']);
 
         LogRequest::extend(function (Request $request, ?Response $response, array $entry) {
             $entry['custom'] = 'value';
@@ -226,7 +226,7 @@ describe('extend callback', function () {
     });
 
     it('is not applied after extend(null)', function () {
-        config(['axiom.request_logging.channel' => 'test-channel']);
+        config(['log-request.channel' => 'test-channel']);
 
         LogRequest::extend(function (Request $request, ?Response $response, array $entry) {
             $entry['should_not_exist'] = true;
@@ -256,7 +256,7 @@ describe('using callback', function () {
     });
 
     it('replaces the default entry', function () {
-        config(['axiom.request_logging.channel' => 'test-channel']);
+        config(['log-request.channel' => 'test-channel']);
 
         LogRequest::using(function (Request $request, ?Response $response, array $measurements) {
             return [
@@ -282,7 +282,7 @@ describe('using callback', function () {
     });
 
     it('composes with extend()', function () {
-        config(['axiom.request_logging.channel' => 'test-channel']);
+        config(['log-request.channel' => 'test-channel']);
 
         LogRequest::using(fn (Request $request, ?Response $response, array $measurements) => [
             'method' => $request->method(),
@@ -308,8 +308,8 @@ describe('using callback', function () {
 
     it('receives measurements without query fields when queries disabled', function () {
         config([
-            'axiom.request_logging.channel' => 'test-channel',
-            'axiom.request_logging.collect_queries' => false,
+            'log-request.channel' => 'test-channel',
+            'log-request.collect_queries' => false,
         ]);
 
         LogRequest::using(function (Request $request, ?Response $response, array $measurements) {
@@ -340,8 +340,8 @@ describe('config options', function () {
 
     it('masks IP when obfuscate_ip is a callable', function () {
         config([
-            'axiom.request_logging.channel' => 'test-channel',
-            'axiom.request_logging.obfuscate_ip' => ObfuscateIp::level(1),
+            'log-request.channel' => 'test-channel',
+            'log-request.obfuscate_ip' => ObfuscateIp::level(1),
         ]);
 
         $channel = Mockery::mock();
@@ -358,8 +358,8 @@ describe('config options', function () {
 
     it('supports custom IP masking callables', function () {
         config([
-            'axiom.request_logging.channel' => 'test-channel',
-            'axiom.request_logging.obfuscate_ip' => fn (?string $ip) => 'redacted',
+            'log-request.channel' => 'test-channel',
+            'log-request.obfuscate_ip' => fn (?string $ip) => 'redacted',
         ]);
 
         $channel = Mockery::mock();
@@ -376,8 +376,8 @@ describe('config options', function () {
 
     it('omits query fields when collect_queries is disabled', function () {
         config([
-            'axiom.request_logging.channel' => 'test-channel',
-            'axiom.request_logging.collect_queries' => false,
+            'log-request.channel' => 'test-channel',
+            'log-request.collect_queries' => false,
         ]);
 
         $channel = Mockery::mock();

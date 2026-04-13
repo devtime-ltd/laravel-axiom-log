@@ -26,7 +26,7 @@ beforeEach(function () {
 });
 
 it('counts database queries', function () {
-    config(['axiom.request_logging.channel' => 'test-channel']);
+    config(['log-request.channel' => 'test-channel']);
 
     $channel = Mockery::mock();
     $channel->shouldReceive('info')
@@ -51,8 +51,8 @@ it('counts database queries', function () {
 
 it('captures slow queries above threshold', function () {
     config([
-        'axiom.request_logging.channel' => 'test-channel',
-        'axiom.request_logging.slow_query_threshold' => 0,
+        'log-request.channel' => 'test-channel',
+        'log-request.slow_query_threshold' => 0,
     ]);
 
     $channel = Mockery::mock();
@@ -78,8 +78,8 @@ it('captures slow queries above threshold', function () {
 
 it('does not capture slow queries when threshold is null', function () {
     config([
-        'axiom.request_logging.channel' => 'test-channel',
-        'axiom.request_logging.slow_query_threshold' => null,
+        'log-request.channel' => 'test-channel',
+        'log-request.slow_query_threshold' => null,
     ]);
 
     $channel = Mockery::mock();
@@ -103,8 +103,8 @@ it('does not capture slow queries when threshold is null', function () {
 
 it('does not count queries when collect_queries is disabled', function () {
     config([
-        'axiom.request_logging.channel' => 'test-channel',
-        'axiom.request_logging.collect_queries' => false,
+        'log-request.channel' => 'test-channel',
+        'log-request.collect_queries' => false,
     ]);
 
     $channel = Mockery::mock();

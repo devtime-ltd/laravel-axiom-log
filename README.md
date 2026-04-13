@@ -10,43 +10,48 @@ Also comes with an optional request logging middleware - see [Request logging mi
 composer require devtime-ltd/laravel-axiom-log
 ```
 
-The service provider is auto-discovered. It registers an `axiom` log channel automatically.
-
 ## Configuration
 
-Set environment variables:
+Add a log channel to your `config/logging.php`:
 
-```env
-AXIOM_LOG_TOKEN=your-api-token
-AXIOM_LOG_DATASET=your-dataset
+```php
+'axiom' => [
+    'driver' => 'monolog',
+    'handler' => \DevtimeLtd\LaravelAxiomLog\AxiomHandler::class,
+    'handler_with' => [
+        'apiToken' => env('AXIOM_LOG_TOKEN'),
+        'dataset'  => env('AXIOM_LOG_DATASET'),
+    ],
+],
 ```
 
-Optional:
+`host` (default: `https://api.axiom.co`) and `batchSize` (default: `50`) can be added to `handler_with` if you need non-default values.
 
-```env
-AXIOM_LOG_CHANNEL_NAME=axiom
-AXIOM_LOG_HOST=https://api.axiom.co
-AXIOM_LOG_BATCH_SIZE=50
-```
-
-If desired, config file can be published via the following:
-
-```bash
-php artisan vendor:publish --tag=axiom-log-config
-```
-
-### Using the Axiom log channel
-
-Add `axiom` to your `LOG_STACK`:
-
-```env
-LOG_STACK=single,axiom
-```
-
-Or use it directly:
+Then add `axiom` to your `LOG_STACK`, or use it directly:
 
 ```php
 Log::channel('axiom')->info('something happened', ['key' => 'value']);
+```
+
+Need multiple Axiom channels with different datasets? Just define more entries:
+
+```php
+'axiom-requests' => [
+    'driver' => 'monolog',
+    'handler' => \DevtimeLtd\LaravelAxiomLog\AxiomHandler::class,
+    'handler_with' => [
+        'apiToken' => env('AXIOM_LOG_TOKEN'),
+        'dataset'  => 'acme_requests_log'
+    ],
+],
+'axiom-activity' => [
+    'driver' => 'monolog',
+    'handler' => \DevtimeLtd\LaravelAxiomLog\AxiomHandler::class,
+    'handler_with' => [
+        'apiToken' => env('AXIOM_LOG_TOKEN'),
+        'dataset'  => 'acme_activity_log',
+    ],
+],
 ```
 
 ---
@@ -103,7 +108,7 @@ Can also pass multiple channels (e.g. `axiom,betterstack`) for logging to multip
 
 ### Request logging options
 
-These options are set in the published `config/axiom.php` under `request_logging`:
+Publish the config file with `php artisan vendor:publish --tag=log-request`. Options in `config/log-request.php`:
 
 #### Database query collection
 

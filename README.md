@@ -126,7 +126,7 @@ The log message used for request entries. Default: `'http.request'`.
 
 This makes it easy to distinguish request logs from application logs (e.g. `Log::error()`) when they share the same Axiom dataset.
 
-You can also override the message at runtime via `LogRequest::message()` in your `AppServiceProvider::boot()` — either a fixed string or a callback:
+You can also override the message at runtime via `LogRequest::message()` in your `AppServiceProvider::boot()`, either a fixed string or a callback:
 
 ```php
 use DevtimeLtd\LaravelAxiomLog\LogRequest;
@@ -144,7 +144,7 @@ This takes precedence over the config value. Pass `null` to revert to the config
 
 #### Log level
 
-The PSR-3 log level for request entries. Default: `'info'`.
+The PSR-3 log level that request entries are logged at. Default: `'info'`.
 
 ```php
 'level' => env('LOG_REQUESTS_LEVEL', 'info'),

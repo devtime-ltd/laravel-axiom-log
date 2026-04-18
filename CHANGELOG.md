@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.0] - 2026-04-18
+
+### Breaking Changes
+
+- Extracted the `LogRequest` middleware, `ObfuscateIp` helper, and `config/log-request.php` into a new package: [devtime-ltd/laravel-observability-log](https://github.com/devtime-ltd/laravel-observability-log). The middleware is provider-agnostic, so it no longer belongs here.
+- Removed `AxiomLogServiceProvider` (there is no longer any config to publish from this package).
+- Dropped `illuminate/database` requirement (only the middleware needed it).
+
+### Migration
+
+1. `composer require devtime-ltd/laravel-observability-log`
+2. Update imports from `DevtimeLtd\LaravelAxiomLog\LogRequest` / `ObfuscateIp` to `DevtimeLtd\LaravelObservabilityLog\LogRequest` / `ObfuscateIp`.
+3. Republish the config: `php artisan vendor:publish --tag=observability-log`. The new file lives at `config/observability-log.php` with settings nested under a `requests` section. Delete the old `config/log-request.php`.
+4. Existing `LOG_REQUESTS_*` env vars continue to work unchanged.
+
 ## [0.3.0] - 2026-04-13
 
 ### Breaking Changes
@@ -46,6 +61,7 @@ Initial release.
 - IP obfuscation via `ObfuscateIp` helper.
 - Database query tracking with configurable slow query threshold.
 
+[0.4.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.1.1...v0.2.0

@@ -1,6 +1,6 @@
 {
     "name": "devtime-ltd/laravel-axiom-log",
-    "description": "Axiom logging for Laravel - batching Monolog handler and structured request logging middleware.",
+    "description": "Batched Monolog handler for Axiom in Laravel.",
     "keywords": ["laravel", "axiom", "logging", "monolog"],
     "license": "MIT",
     "authors": [
@@ -11,7 +11,6 @@
     "require": {
         "php": "^8.2",
         "ext-curl": "*",
-        "illuminate/database": "^11.0|^12.0|^13.0",
         "illuminate/support": "^11.0|^12.0|^13.0",
         "monolog/monolog": "^3.0"
     },
@@ -27,13 +26,6 @@
     "autoload-dev": {
         "psr-4": {
             "DevtimeLtd\\LaravelAxiomLog\\Tests\\": "tests/"
-        }
-    },
-    "extra": {
-        "laravel": {
-            "providers": [
-                "DevtimeLtd\\LaravelAxiomLog\\AxiomLogServiceProvider"
-            ]
         }
     },
     "scripts": {

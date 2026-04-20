@@ -11,9 +11,9 @@
 ### Migration
 
 1. `composer require devtime-ltd/laravel-observability-log`
-2. Update imports from `DevtimeLtd\LaravelAxiomLog\LogRequest` / `ObfuscateIp` to `DevtimeLtd\LaravelObservabilityLog\LogRequest` / `ObfuscateIp`.
+2. Update imports from `DevtimeLtd\LaravelAxiomLog\LogRequest` / `ObfuscateIp` to ~~`DevtimeLtd\LaravelObservabilityLog\LogRequest`~~ `DevtimeLtd\LaravelObservabilityLog\RequestSensor` / `ObfuscateIp` (`LogRequest` was renamed to `RequestSensor` in observability-log v0.2.0).
 3. Republish the config: `php artisan vendor:publish --tag=observability-log`. The new file lives at `config/observability-log.php` with settings nested under a `requests` section. Delete the old `config/log-request.php`.
-4. Existing `LOG_REQUESTS_*` env vars continue to work unchanged.
+4. ~~Existing `LOG_REQUESTS_*` env vars continue to work unchanged.~~ (env vars were renamed to `OBSERVABILITY_LOG_*` in observability-log v0.2.0 — see that package's CHANGELOG for details.)
 
 ## [0.3.0] - 2026-04-13
 

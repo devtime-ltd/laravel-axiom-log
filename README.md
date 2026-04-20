@@ -2,7 +2,7 @@
 
 Batched log handler for [Axiom](https://axiom.co) in Laravel. Buffers log records in memory and flushes them as a single POST to Axiom's ingest API at end of request (or when batch size threshold is reached).
 
-> **Looking for request logging?** The `LogRequest` middleware moved to [devtime-ltd/laravel-observability-log](https://github.com/devtime-ltd/laravel-observability-log) as of v0.4.0. It is provider-agnostic and works alongside this handler, Better Stack, stderr, or any other Laravel log channel.
+> **Looking for request logging?** The request-logging middleware (now `RequestSensor`) moved to [devtime-ltd/laravel-observability-log](https://github.com/devtime-ltd/laravel-observability-log) as of v0.4.0. It is provider-agnostic and works alongside this handler, Better Stack, stderr, or any other Laravel log channel.
 
 ## Installation
 

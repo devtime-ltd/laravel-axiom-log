@@ -168,14 +168,16 @@ describe('endpoint construction', function () {
 });
 
 describe('resilience', function () {
-    it('silently drops the batch when json_encode fails', function () {
+    it('renders resources in context as a string instead of crashing', function () {
         $handler = makeAxiomHandler();
         $resource = fopen('php://memory', 'r');
-        $handler->handle(makeLogRecord('will fail', context: ['bad' => $resource]));
-        fclose($resource);
+        $handler->handle(makeLogRecord('with resource', context: ['bad' => $resource]));
         $handler->close();
+        fclose($resource);
 
-        expect($handler->sent)->toBeEmpty();
+        expect($handler->sent)->toHaveCount(1);
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['context']['bad'])->toContain('resource');
     });
 
     it('does not double-send on repeated close', function () {
@@ -185,6 +187,62 @@ describe('resilience', function () {
         $handler->close();
 
         expect($handler->sent)->toHaveCount(1);
+    });
+});
+
+describe('throwable normalization', function () {
+    it('normalizes a throwable in context to a structured array', function () {
+        $handler = makeAxiomHandler();
+        $exception = new RuntimeException('boom', 42);
+        $handler->handle(makeLogRecord('failed', context: ['exception' => $exception]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+
+        expect($event['context']['exception'])
+            ->toHaveKey('class', 'RuntimeException')
+            ->toHaveKey('message', 'boom')
+            ->toHaveKey('code', 42);
+        expect($event['context']['exception']['file'])->toContain(__FILE__);
+    });
+
+    it('normalizes nested throwables in context', function () {
+        $handler = makeAxiomHandler();
+        $exception = new LogicException('inner');
+        $handler->handle(makeLogRecord('failed', context: ['outer' => ['inner' => $exception]]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+
+        expect($event['context']['outer']['inner'])
+            ->toHaveKey('class', 'LogicException')
+            ->toHaveKey('message', 'inner');
+    });
+
+    it('includes previous exception chain', function () {
+        $handler = makeAxiomHandler();
+        $inner = new LogicException('inner cause');
+        $outer = new RuntimeException('outer effect', 0, $inner);
+        $handler->handle(makeLogRecord('failed', context: ['exception' => $outer]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+
+        expect($event['context']['exception']['previous'])
+            ->toHaveKey('class', 'LogicException')
+            ->toHaveKey('message', 'inner cause');
+    });
+
+    it('normalizes throwables in extra too', function () {
+        $handler = makeAxiomHandler();
+        $handler->handle(makeLogRecord('failed', extra: ['err' => new RuntimeException('from extra')]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+
+        expect($event['extra']['err'])
+            ->toHaveKey('class', 'RuntimeException')
+            ->toHaveKey('message', 'from extra');
     });
 });
 

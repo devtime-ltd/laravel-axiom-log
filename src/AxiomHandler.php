@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DevtimeLtd\LaravelAxiomLog;
 
+use Monolog\Formatter\NormalizerFormatter;
 use Monolog\Handler\AbstractProcessingHandler;
 use Monolog\Level;
 use Monolog\LogRecord;
@@ -22,6 +23,8 @@ class AxiomHandler extends AbstractProcessingHandler
     /** @var list<array<string, mixed>> */
     private array $buffer = [];
 
+    private readonly NormalizerFormatter $normalizer;
+
     public function __construct(
         private readonly string $apiToken,
         private readonly string $dataset,
@@ -31,6 +34,7 @@ class AxiomHandler extends AbstractProcessingHandler
         bool $bubble = true,
     ) {
         parent::__construct($level, $bubble);
+        $this->normalizer = new NormalizerFormatter;
     }
 
     protected function write(LogRecord $record): void
@@ -107,11 +111,11 @@ class AxiomHandler extends AbstractProcessingHandler
         ];
 
         if (! empty($record->context)) {
-            $event['context'] = $record->context;
+            $event['context'] = $this->normalizer->normalizeValue($record->context);
         }
 
         if (! empty($record->extra)) {
-            $event['extra'] = $record->extra;
+            $event['extra'] = $this->normalizer->normalizeValue($record->extra);
         }
 
         return $event;

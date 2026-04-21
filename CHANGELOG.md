@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0] - 2026-04-21
+
+### Fixed
+
+- Throwables passed in log context (e.g. `Log::error('failed', ['exception' => $e])`) are now normalized to a structured array (`class`, `message`, `code`, `file`, `trace`, `previous`) before ingest. Previously they arrived in Axiom as `context.exception = {}` because PHP's `json_encode` drops non-public properties on `Exception`.
+- Other non-encodable values in context/extra (resources, `DateTimeInterface`, `JsonSerializable`, `UnitEnum`) are now normalized instead of crashing the batch, matching the behaviour of other standard Monolog handlers.
+
+### Changed
+
+- `AxiomHandler` now composes `Monolog\Formatter\NormalizerFormatter` to normalize `context` and `extra` values before JSON encoding.
+
 ## [0.4.0] - 2026-04-18
 
 ### Breaking Changes
@@ -61,6 +72,7 @@ Initial release.
 - IP obfuscation via `ObfuscateIp` helper.
 - Database query tracking with configurable slow query threshold.
 
+[0.5.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.2.0...v0.2.1

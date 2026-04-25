@@ -6,12 +6,13 @@ use Monolog\LogRecord;
 
 class FakeAxiomHandler extends AxiomHandler
 {
-    /** @var list<array{url: string, json: string}> */
+    /** @var list<array{url: string, json: string, shuttingDown: bool}> */
     public array $sent = [];
 
     protected function send(string $url, string $json): void
     {
-        $this->sent[] = ['url' => $url, 'json' => $json];
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'shuttingDown');
+        $this->sent[] = ['url' => $url, 'json' => $json, 'shuttingDown' => $reflection->getValue($this)];
     }
 }
 
@@ -197,9 +198,18 @@ describe('resilience', function () {
         $handler->__destruct();
 
         expect($handler->sent)->toHaveCount(1);
+        expect($handler->sent[0]['shuttingDown'])->toBeTrue();
         $payload = json_decode($handler->sent[0]['json'], true);
         expect($payload)->toHaveCount(1);
         expect($payload[0]['message'])->toBe('orphan');
+    });
+
+    it('does not mark non-destructor flushes as shutting down', function () {
+        $handler = makeAxiomHandler(batchSize: 1);
+        $handler->handle(makeLogRecord('eager'));
+
+        expect($handler->sent)->toHaveCount(1);
+        expect($handler->sent[0]['shuttingDown'])->toBeFalse();
     });
 });
 

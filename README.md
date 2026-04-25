@@ -27,7 +27,7 @@ Add a log channel to your `config/logging.php`:
 ],
 ```
 
-`host` (default: `https://api.axiom.co`) and `batchSize` (default: `50`) can be added to `handler_with` if you need non-default values.
+`host` (default: `https://api.axiom.co`), `batchSize` (default: `50`), `timeout` (default: `5` seconds, applied to ingest cURL calls) and `shutdownTimeout` (default: `2` seconds, applied when flushing during PHP shutdown so an Axiom outage cannot stall the request) can be added to `handler_with` if you need non-default values.
 
 Then add `axiom` to your `LOG_STACK`, or use it directly:
 

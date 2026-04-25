@@ -188,6 +188,19 @@ describe('resilience', function () {
 
         expect($handler->sent)->toHaveCount(1);
     });
+
+    it('flushes buffered records when the handler is destructed', function () {
+        $handler = makeAxiomHandler();
+        $handler->handle(makeLogRecord('orphan'));
+        expect($handler->sent)->toBeEmpty();
+
+        $handler->__destruct();
+
+        expect($handler->sent)->toHaveCount(1);
+        $payload = json_decode($handler->sent[0]['json'], true);
+        expect($payload)->toHaveCount(1);
+        expect($payload[0]['message'])->toBe('orphan');
+    });
 });
 
 describe('throwable normalization', function () {

@@ -52,6 +52,11 @@ class AxiomHandler extends AbstractProcessingHandler
         parent::close();
     }
 
+    public function __destruct()
+    {
+        $this->close();
+    }
+
     private function flush(): void
     {
         if (empty($this->buffer)) {

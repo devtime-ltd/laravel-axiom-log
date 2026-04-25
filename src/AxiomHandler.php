@@ -20,10 +20,16 @@ class AxiomHandler extends AbstractProcessingHandler
 
     const DEFAULT_BATCH_SIZE = 50;
 
+    const DEFAULT_TIMEOUT = 5;
+
+    const DEFAULT_SHUTDOWN_TIMEOUT = 2;
+
     /** @var list<array<string, mixed>> */
     private array $buffer = [];
 
     private readonly NormalizerFormatter $normalizer;
+
+    private bool $shuttingDown = false;
 
     public function __construct(
         private readonly string $apiToken,
@@ -32,6 +38,8 @@ class AxiomHandler extends AbstractProcessingHandler
         private readonly int $batchSize = self::DEFAULT_BATCH_SIZE,
         Level|int|string $level = Level::Debug,
         bool $bubble = true,
+        private readonly int $timeout = self::DEFAULT_TIMEOUT,
+        private readonly int $shutdownTimeout = self::DEFAULT_SHUTDOWN_TIMEOUT,
     ) {
         parent::__construct($level, $bubble);
         $this->normalizer = new NormalizerFormatter;
@@ -54,6 +62,7 @@ class AxiomHandler extends AbstractProcessingHandler
 
     public function __destruct()
     {
+        $this->shuttingDown = true;
         $this->close();
     }
 
@@ -92,7 +101,7 @@ class AxiomHandler extends AbstractProcessingHandler
                     'Content-Type: application/json',
                 ],
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 5,
+                CURLOPT_TIMEOUT => $this->shuttingDown ? $this->shutdownTimeout : $this->timeout,
                 CURLOPT_CONNECTTIMEOUT => 2,
             ]);
 

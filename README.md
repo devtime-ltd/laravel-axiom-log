@@ -60,6 +60,17 @@ Need multiple Axiom channels with different datasets? Just define more entries:
 ],
 ```
 
+## When records are sent
+
+Records are buffered and flushed in any of the following situations:
+
+- The buffer reaches `batchSize` (default 50).
+- The handler is destructed at end of a synchronous request (PHP shutdown).
+- A queue worker finishes a job (`JobProcessed`, `JobExceptionOccurred`) or stops (`WorkerStopping`).
+- An Octane request, task, or tick terminates (auto-detected if `laravel/octane` is installed).
+
+The queue and Octane hooks are registered automatically by `LaravelAxiomLogServiceProvider` (auto-discovered — no manual setup needed). If you have another long-lived process boundary (custom long-running command, scheduled job, etc.) where you want to flush eagerly, call `$handler->flush()` directly or hook into your own event.
+
 ## Testing
 
 ```bash

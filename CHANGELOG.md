@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0] - 2026-04-25
+
+### Fixed
+
+- Buffered records are now flushed when the handler is destructed, not only at batch size or on explicit `close()`. Previously, low-volume request scopes (e.g. a web/Inertia route producing a single `http.request` entry) could silently drop the buffer at PHP shutdown because Laravel never calls `close()` on Monolog handlers and `Monolog\Logger` has no `__destruct`.
+
+### Added
+
+- `LaravelAxiomLogServiceProvider` (auto-discovered) flushes any `AxiomHandler` buffers on `JobProcessed`, `JobExceptionOccurred`, and `WorkerStopping` events, so long-running queue workers no longer retain low-volume records across jobs until the batch threshold is hit.
+- The same provider also flushes on Octane's `RequestTerminated`, `TaskTerminated`, and `TickTerminated` events when `laravel/octane` is installed (auto-detected).
+- `AxiomHandler::flush()` is now public so it can be invoked directly (e.g. from custom listeners for Octane, scheduled tasks, or other long-lived process boundaries).
+
 ## [0.5.0] - 2026-04-21
 
 ### Fixed
@@ -72,6 +84,7 @@ Initial release.
 - IP obfuscation via `ObfuscateIp` helper.
 - Database query tracking with configurable slow query threshold.
 
+[0.6.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.2.1...v0.3.0

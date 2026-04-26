@@ -393,6 +393,24 @@ describe('throwable normalization', function () {
         expect($event['context']['exception']['context']['handle'])->toBeString();
     });
 
+    it('truncates cyclic context() data via depth budget without exhausting memory', function () {
+        $handler = makeAxiomHandler();
+        $exception = new class('boom') extends RuntimeException
+        {
+            public function context(): array
+            {
+                return ['self' => $this];
+            }
+        };
+
+        $handler->handle(makeLogRecord('failed', context: ['exception' => $exception]));
+        $handler->close();
+
+        expect($handler->sent)->toHaveCount(1);
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['context']['exception'])->toHaveKey('context');
+    });
+
     it('preserves the existing wire shape (level, _time, channel)', function () {
         $handler = makeAxiomHandler();
         $exception = new class('boom') extends RuntimeException

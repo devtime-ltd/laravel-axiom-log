@@ -281,6 +281,116 @@ describe('throwable normalization', function () {
             ->toHaveKey('class', 'RuntimeException')
             ->toHaveKey('message', 'from extra');
     });
+
+    it('captures the context() array on a throwable', function () {
+        $handler = makeAxiomHandler();
+        $exception = new class('boom') extends RuntimeException
+        {
+            public function context(): array
+            {
+                return ['order_id' => 123, 'user_id' => 7];
+            }
+        };
+
+        $handler->handle(makeLogRecord('failed', context: ['exception' => $exception]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+
+        expect($event['context']['exception']['context'])
+            ->toBe(['order_id' => 123, 'user_id' => 7]);
+    });
+
+    it('omits the context key when context() returns an empty array', function () {
+        $handler = makeAxiomHandler();
+        $exception = new class('boom') extends RuntimeException
+        {
+            public function context(): array
+            {
+                return [];
+            }
+        };
+
+        $handler->handle(makeLogRecord('failed', context: ['exception' => $exception]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+
+        expect($event['context']['exception'])->not->toHaveKey('context');
+    });
+
+    it('omits the context key when the throwable has no context() method', function () {
+        $handler = makeAxiomHandler();
+        $handler->handle(makeLogRecord('failed', context: ['exception' => new RuntimeException('boom')]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+
+        expect($event['context']['exception'])->not->toHaveKey('context');
+    });
+
+    it('swallows exceptions thrown by context() and omits the field', function () {
+        $handler = makeAxiomHandler();
+        $exception = new class('boom') extends RuntimeException
+        {
+            public function context(): array
+            {
+                throw new RuntimeException('context blew up');
+            }
+        };
+
+        $handler->handle(makeLogRecord('failed', context: ['exception' => $exception]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+
+        expect($event['context']['exception'])->not->toHaveKey('context');
+    });
+
+    it('captures context() on previous exceptions in the chain', function () {
+        $handler = makeAxiomHandler();
+        $inner = new class('inner') extends RuntimeException
+        {
+            public function context(): array
+            {
+                return ['stage' => 'payment'];
+            }
+        };
+        $outer = new RuntimeException('outer', 0, $inner);
+
+        $handler->handle(makeLogRecord('failed', context: ['exception' => $outer]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+
+        expect($event['context']['exception']['previous']['context'])
+            ->toBe(['stage' => 'payment']);
+    });
+
+    it('preserves the existing wire shape (level, _time, channel)', function () {
+        $handler = makeAxiomHandler();
+        $exception = new class('boom') extends RuntimeException
+        {
+            public function context(): array
+            {
+                return ['ok' => true];
+            }
+        };
+
+        $handler->handle(makeLogRecord('failed', context: ['exception' => $exception]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+
+        expect($event)->toHaveKey('_time');
+        expect($event['level'])->toBeString();
+        expect($event)->toHaveKey('channel');
+        expect($event['context']['exception'])
+            ->toHaveKey('class')
+            ->toHaveKey('message')
+            ->toHaveKey('code')
+            ->toHaveKey('file');
+    });
 });
 
 describe('level filtering', function () {

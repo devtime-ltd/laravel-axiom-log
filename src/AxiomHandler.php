@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace DevtimeLtd\LaravelAxiomLog;
 
-use Monolog\Formatter\NormalizerFormatter;
 use Monolog\Handler\AbstractProcessingHandler;
 use Monolog\Level;
 use Monolog\LogRecord;
@@ -31,7 +30,7 @@ class AxiomHandler extends AbstractProcessingHandler
     /** @var list<array<string, mixed>> */
     private array $buffer = [];
 
-    private readonly NormalizerFormatter $normalizer;
+    private readonly ExceptionContextNormalizer $normalizer;
 
     private bool $shuttingDown = false;
 
@@ -46,7 +45,7 @@ class AxiomHandler extends AbstractProcessingHandler
         private readonly int $shutdownTimeout = self::DEFAULT_SHUTDOWN_TIMEOUT,
     ) {
         parent::__construct($level, $bubble);
-        $this->normalizer = new NormalizerFormatter;
+        $this->normalizer = new ExceptionContextNormalizer;
         self::$instances[spl_object_id($this)] = WeakReference::create($this);
     }
 

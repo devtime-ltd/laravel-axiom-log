@@ -8,7 +8,7 @@
 
 ### Added
 
-- `LaravelAxiomLogServiceProvider` (auto-discovered) flushes any `AxiomHandler` buffers on `JobProcessed`, `JobExceptionOccurred`, and `WorkerStopping` events, so long-running queue workers no longer retain low-volume records across jobs until the batch threshold is hit.
+- `LaravelAxiomLogServiceProvider` (auto-discovered) flushes any `AxiomHandler` buffers on `JobProcessed`, `JobExceptionOccurred`, and `WorkerStopping` events, so long-running queue workers no longer retain low-volume records across jobs until the batch threshold is hit. Handlers wrapped by Laravel/Monolog (e.g. inside `WhatFailureGroupHandler` for stack channels with `ignore_exceptions=true`) are flushed too, via a `WeakReference`-based instance registry on `AxiomHandler` rather than walking the channel handler tree.
 - The same provider also flushes on Octane's `RequestTerminated`, `TaskTerminated`, and `TickTerminated` events when `laravel/octane` is installed (auto-detected).
 - `AxiomHandler::flush()` is now public so it can be invoked directly (e.g. from custom listeners for Octane, scheduled tasks, or other long-lived process boundaries).
 - `timeout` and `shutdownTimeout` constructor options on `AxiomHandler` (defaults: `5` and `2` seconds). The shorter shutdown timeout applies when the buffer is flushed via `__destruct`, so an Axiom outage cannot block PHP shutdown for the full request timeout.

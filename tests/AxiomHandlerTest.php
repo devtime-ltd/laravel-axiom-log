@@ -204,6 +204,20 @@ describe('resilience', function () {
         expect($payload[0]['message'])->toBe('orphan');
     });
 
+    it('removes handlers from the static registry on destruction', function () {
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'instances');
+
+        $handler = makeAxiomHandler();
+        $id = spl_object_id($handler);
+        expect($reflection->getValue())->toHaveKey($id);
+
+        unset($handler);
+
+        // Inspect the raw static array directly so the WeakReference pruning
+        // inside instances() cannot mask a missing destructor unset.
+        expect($reflection->getValue())->not->toHaveKey($id);
+    });
+
     it('does not mark non-destructor flushes as shutting down', function () {
         $handler = makeAxiomHandler(batchSize: 1);
         $handler->handle(makeLogRecord('eager'));

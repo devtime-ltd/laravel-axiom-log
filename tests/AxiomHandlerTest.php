@@ -367,6 +367,32 @@ describe('throwable normalization', function () {
             ->toBe(['stage' => 'payment']);
     });
 
+    it('normalizes non-JSON-safe values returned by context() so flush does not drop the batch', function () {
+        $handler = makeAxiomHandler();
+        $resource = fopen('php://memory', 'r');
+        $exception = new class('boom', $resource) extends RuntimeException
+        {
+            public function __construct(string $message, private $resource)
+            {
+                parent::__construct($message);
+            }
+
+            public function context(): array
+            {
+                return ['handle' => $this->resource];
+            }
+        };
+
+        $handler->handle(makeLogRecord('failed', context: ['exception' => $exception]));
+        $handler->close();
+        fclose($resource);
+
+        expect($handler->sent)->toHaveCount(1);
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['context']['exception']['context'])->toHaveKey('handle');
+        expect($event['context']['exception']['context']['handle'])->toBeString();
+    });
+
     it('preserves the existing wire shape (level, _time, channel)', function () {
         $handler = makeAxiomHandler();
         $exception = new class('boom') extends RuntimeException

@@ -30,7 +30,7 @@ class ExceptionContextNormalizer extends NormalizerFormatter
             try {
                 $context = $e->context();
                 if (is_array($context) && $context !== []) {
-                    $data['context'] = $context;
+                    $data['context'] = $this->normalizeValue($context);
                 }
             } catch (Throwable) {
             }

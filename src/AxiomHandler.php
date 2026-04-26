@@ -8,6 +8,7 @@ use Monolog\Formatter\NormalizerFormatter;
 use Monolog\Handler\AbstractProcessingHandler;
 use Monolog\Level;
 use Monolog\LogRecord;
+use WeakReference;
 
 /**
  * Monolog handler that batches log records and sends them to Axiom's
@@ -23,6 +24,9 @@ class AxiomHandler extends AbstractProcessingHandler
     const DEFAULT_TIMEOUT = 5;
 
     const DEFAULT_SHUTDOWN_TIMEOUT = 2;
+
+    /** @var array<int, WeakReference<self>> */
+    private static array $instances = [];
 
     /** @var list<array<string, mixed>> */
     private array $buffer = [];
@@ -43,6 +47,30 @@ class AxiomHandler extends AbstractProcessingHandler
     ) {
         parent::__construct($level, $bubble);
         $this->normalizer = new NormalizerFormatter;
+        self::$instances[spl_object_id($this)] = WeakReference::create($this);
+    }
+
+    /**
+     * Live AxiomHandler instances. Used by LaravelAxiomLogServiceProvider to
+     * flush buffers at queue/Octane boundaries regardless of how Laravel or
+     * Monolog may have wrapped the handlers (e.g. inside WhatFailureGroupHandler
+     * for stack channels with `ignore_exceptions=true`).
+     *
+     * @return list<self>
+     */
+    public static function instances(): array
+    {
+        $alive = [];
+        foreach (self::$instances as $id => $ref) {
+            $instance = $ref->get();
+            if ($instance === null) {
+                unset(self::$instances[$id]);
+                continue;
+            }
+            $alive[] = $instance;
+        }
+
+        return $alive;
     }
 
     protected function write(LogRecord $record): void
@@ -62,6 +90,7 @@ class AxiomHandler extends AbstractProcessingHandler
 
     public function __destruct()
     {
+        unset(self::$instances[spl_object_id($this)]);
         $this->shuttingDown = true;
         $this->close();
     }

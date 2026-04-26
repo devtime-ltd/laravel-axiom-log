@@ -1,7 +1,6 @@
 <?php
 
 use DevtimeLtd\LaravelAxiomLog\AxiomHandler;
-use DevtimeLtd\LaravelAxiomLog\LaravelAxiomLogServiceProvider;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Queue\Events\JobExceptionOccurred;
@@ -13,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Laravel\Octane\Events\RequestTerminated;
 use Laravel\Octane\Events\TaskTerminated;
 use Laravel\Octane\Events\TickTerminated;
+use Monolog\Handler\WhatFailureGroupHandler;
 use Monolog\Logger as MonologLogger;
 
 class RecordingAxiomHandler extends AxiomHandler
@@ -85,10 +85,26 @@ it('flushes when the worker stops', function () {
     expect($handler->sent)->toHaveCount(1);
 });
 
-it('does not error when no axiom channels are resolved', function () {
-    app(LaravelAxiomLogServiceProvider::class, ['app' => app()])
-        ->flushAxiomHandlers();
-})->throwsNoExceptions();
+it('flushes handlers wrapped in WhatFailureGroupHandler (stack channel with ignore_exceptions)', function () {
+    $handler = new RecordingAxiomHandler(apiToken: 'test-token', dataset: 'test-dataset');
+    $wrapper = new WhatFailureGroupHandler([$handler]);
+
+    Log::extend('wrapped-axiom', fn () => new MonologLogger('axiom', [$wrapper]));
+    config()->set('logging.channels.axiom', ['driver' => 'wrapped-axiom']);
+
+    Log::channel('axiom')->info('through the wrapper');
+    expect($handler->sent)->toBeEmpty();
+
+    Event::dispatch(new JobProcessed('sync', new class
+    {
+        public function getJobId(): string
+        {
+            return '99';
+        }
+    }));
+
+    expect($handler->sent)->toHaveCount(1);
+});
 
 it('flushes after an Octane request terminates', function () {
     $handler = registerRecordingChannel();

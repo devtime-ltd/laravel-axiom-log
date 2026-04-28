@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.6.0] - 2026-04-25
+## [0.6.0] - 2026-04-28
 
 ### Fixed
 
@@ -12,6 +12,7 @@
 - The same provider also flushes on Octane's `RequestTerminated`, `TaskTerminated`, and `TickTerminated` events when `laravel/octane` is installed (auto-detected).
 - `AxiomHandler::flush()` is now public so it can be invoked directly (e.g. from custom listeners for Octane, scheduled tasks, or other long-lived process boundaries).
 - `timeout` and `shutdownTimeout` constructor options on `AxiomHandler` (defaults: `5` and `2` seconds). The shorter shutdown timeout applies when the buffer is flushed via `__destruct`, so an Axiom outage cannot block PHP shutdown for the full request timeout.
+- `ExceptionContextNormalizer` (a `NormalizerFormatter` subclass) attaches the result of `Throwable::context()` to normalized exception data when present, mirroring [laravel/framework#59756](https://github.com/laravel/framework/pull/59756) without changing the existing wire shape. Applies to nested throwables and `previous` chains via Monolog's existing recursion. Returned `context()` values are themselves normalized at the formatter's configured depth, so non-JSON-safe data (resources, closures, cyclic references) no longer drops the batch.
 
 ## [0.5.0] - 2026-04-21
 

@@ -1,6 +1,7 @@
 <?php
 
 use DevtimeLtd\LaravelAxiomLog\AxiomHandler;
+use DevtimeLtd\LaravelAxiomLog\Tests\Fixtures\PlainNamespacedObject;
 use Monolog\Level;
 use Monolog\LogRecord;
 
@@ -434,6 +435,189 @@ describe('throwable normalization', function () {
             ->toHaveKey('message')
             ->toHaveKey('code')
             ->toHaveKey('file');
+    });
+});
+
+describe('JsonSerializable normalization', function () {
+    it('unwraps JsonSerializable values to their jsonSerialize() result', function () {
+        $handler = makeAxiomHandler();
+        $collector = new class implements JsonSerializable
+        {
+            public function jsonSerialize(): array
+            {
+                return ['member:abc', 'project:xyz'];
+            }
+        };
+
+        $handler->handle(makeLogRecord('with collector', context: ['sigils' => $collector]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['context']['sigils'])->toBe(['member:abc', 'project:xyz']);
+    });
+
+    it('does not wrap JsonSerializable values with the class name', function () {
+        $handler = makeAxiomHandler();
+        $serializable = new class implements JsonSerializable
+        {
+            public function jsonSerialize(): array
+            {
+                return ['ok' => true];
+            }
+        };
+
+        $handler->handle(makeLogRecord('flat', context: ['data' => $serializable]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['context']['data'])->toBe(['ok' => true]);
+    });
+
+    it('unwraps JsonSerializable values nested inside arrays', function () {
+        $handler = makeAxiomHandler();
+        $serializable = new class implements JsonSerializable
+        {
+            public function jsonSerialize(): string
+            {
+                return 'unwrapped';
+            }
+        };
+
+        $handler->handle(makeLogRecord('nested', context: ['outer' => ['inner' => $serializable]]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['context']['outer']['inner'])->toBe('unwrapped');
+    });
+
+    it('still routes Throwables through the structured exception path', function () {
+        $handler = makeAxiomHandler();
+        $exception = new RuntimeException('boom');
+
+        $handler->handle(makeLogRecord('failed', context: ['exception' => $exception]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['context']['exception'])
+            ->toHaveKey('class', 'RuntimeException')
+            ->toHaveKey('message', 'boom');
+    });
+});
+
+describe('field name sanitization', function () {
+    beforeEach(function () {
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'fieldNameSanitizationWarned');
+        $reflection->setValue(null, false);
+    });
+
+    it('replaces backslashes in user-supplied keys with double underscore', function () {
+        $handler = makeAxiomHandler();
+
+        $handler->handle(makeLogRecord('bad key', context: ['App\\Service\\Foo' => 'v']));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['context'])
+            ->toHaveKey('App__Service__Foo', 'v')
+            ->not->toHaveKey('App\\Service\\Foo');
+    });
+
+    it('replaces backslashes in keys at any nesting depth', function () {
+        $handler = makeAxiomHandler();
+
+        $handler->handle(makeLogRecord('nested', context: ['outer' => ['App\\Foo' => 'v']]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['context']['outer'])
+            ->toHaveKey('App__Foo', 'v')
+            ->not->toHaveKey('App\\Foo');
+    });
+
+    it('sanitizes class-name keys produced when Monolog wraps non-JsonSerializable objects', function () {
+        $handler = makeAxiomHandler();
+
+        $handler->handle(makeLogRecord('plain', context: ['data' => new PlainNamespacedObject('hello')]));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        $sanitizedKey = 'DevtimeLtd__LaravelAxiomLog__Tests__Fixtures__PlainNamespacedObject';
+        expect($event['context']['data'])->toHaveKey($sanitizedKey);
+        expect($event['context']['data'][$sanitizedKey])->toBe(['value' => 'hello']);
+    });
+
+    it('does not modify backslashes inside values', function () {
+        $handler = makeAxiomHandler();
+
+        $handler->handle(makeLogRecord('value', context: ['class' => 'App\\Service\\Foo']));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['context']['class'])->toBe('App\\Service\\Foo');
+    });
+
+    it('also sanitizes keys in extra', function () {
+        $handler = makeAxiomHandler();
+
+        $handler->handle(makeLogRecord('with extra', extra: ['App\\Tag' => 'v']));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['extra'])
+            ->toHaveKey('App__Tag', 'v')
+            ->not->toHaveKey('App\\Tag');
+    });
+
+    it('flips the warn-once flag when sanitization fires', function () {
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'fieldNameSanitizationWarned');
+        expect($reflection->getValue())->toBeFalse();
+
+        $handler = makeAxiomHandler();
+        $handler->handle(makeLogRecord('first', context: ['App\\Foo' => 'v']));
+        $handler->handle(makeLogRecord('second', context: ['App\\Bar' => 'v']));
+        $handler->close();
+
+        expect($reflection->getValue())->toBeTrue();
+    });
+
+    it('still sanitizes but does not warn when warnOnSanitization is false', function () {
+        $handler = new FakeAxiomHandler(
+            apiToken: 'test-token',
+            dataset: 'test-dataset',
+            warnOnSanitization: false,
+        );
+        $handler->handle(makeLogRecord('quiet', context: ['App\\Foo' => 'v']));
+        $handler->close();
+
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'fieldNameSanitizationWarned');
+        expect($reflection->getValue())->toBeFalse();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['context'])->toHaveKey('App__Foo', 'v');
+    });
+
+    it('produces a payload with no backslashes in any field name', function () {
+        $handler = makeAxiomHandler();
+
+        $handler->handle(makeLogRecord(
+            'mixed',
+            context: ['data' => new PlainNamespacedObject('x')],
+            extra: ['App\\Tag' => 'v'],
+        ));
+        $handler->close();
+
+        $payload = $handler->sent[0]['json'];
+        $event = json_decode($payload, true)[0];
+
+        $assertNoBackslashKeys = function (array $arr) use (&$assertNoBackslashKeys) {
+            foreach ($arr as $key => $value) {
+                expect($key)->not->toContain('\\');
+                if (is_array($value)) {
+                    $assertNoBackslashKeys($value);
+                }
+            }
+        };
+        $assertNoBackslashKeys($event);
     });
 });
 

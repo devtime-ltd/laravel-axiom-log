@@ -27,6 +27,8 @@ class AxiomHandler extends AbstractProcessingHandler
     /** @var array<int, WeakReference<self>> */
     private static array $instances = [];
 
+    private static bool $fieldNameSanitizationWarned = false;
+
     /** @var list<array<string, mixed>> */
     private array $buffer = [];
 
@@ -43,6 +45,7 @@ class AxiomHandler extends AbstractProcessingHandler
         bool $bubble = true,
         private readonly int $timeout = self::DEFAULT_TIMEOUT,
         private readonly int $shutdownTimeout = self::DEFAULT_SHUTDOWN_TIMEOUT,
+        private readonly bool $warnOnSanitization = true,
     ) {
         parent::__construct($level, $bubble);
         $this->normalizer = new ExceptionContextNormalizer;
@@ -153,13 +156,58 @@ class AxiomHandler extends AbstractProcessingHandler
         ];
 
         if (! empty($record->context)) {
-            $event['context'] = $this->normalizer->normalizeValue($record->context);
+            $event['context'] = $this->sanitizeKeys($this->normalizer->normalizeValue($record->context));
         }
 
         if (! empty($record->extra)) {
-            $event['extra'] = $this->normalizer->normalizeValue($record->extra);
+            $event['extra'] = $this->sanitizeKeys($this->normalizer->normalizeValue($record->extra));
         }
 
         return $event;
+    }
+
+    /**
+     * Replace backslashes in field names with `__`. Axiom rejects field names
+     * containing `\` (the only character it hard-rejects, confirmed by probing
+     * the ingest API), and the handler's catch-all in `send()` would silently
+     * drop the entire batch on rejection. The most common source is Monolog
+     * wrapping non-`JsonSerializable` objects as `[ClassName => value]` where
+     * `ClassName` is a namespaced FQCN.
+     */
+    private function sanitizeKeys(mixed $data): mixed
+    {
+        if (! is_array($data)) {
+            return $data;
+        }
+
+        $sanitized = [];
+        foreach ($data as $key => $value) {
+            if (is_string($key) && str_contains($key, '\\')) {
+                if ($this->warnOnSanitization) {
+                    self::warnFieldNameSanitizationOnce($key);
+                }
+                $key = str_replace('\\', '__', $key);
+            }
+            $sanitized[$key] = $this->sanitizeKeys($value);
+        }
+
+        return $sanitized;
+    }
+
+    private static function warnFieldNameSanitizationOnce(string $original): void
+    {
+        if (self::$fieldNameSanitizationWarned) {
+            return;
+        }
+        self::$fieldNameSanitizationWarned = true;
+
+        error_log(sprintf(
+            'AxiomHandler: sanitized field name "%s" (replaced "\\" with "__"). '
+            .'Axiom rejects backslashes in field names; the most common cause is '
+            .'logging an object whose class FQCN contains backslashes. Implement '
+            .'JsonSerializable on the object or unwrap it before logging. '
+            .'This warning fires once per process.',
+            $original,
+        ));
     }
 }

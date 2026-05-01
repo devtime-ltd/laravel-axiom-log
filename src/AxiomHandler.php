@@ -31,6 +31,8 @@ class AxiomHandler extends AbstractProcessingHandler
 
     private static bool $fieldNameCollisionWarned = false;
 
+    private static bool $sendFailureWarned = false;
+
     /** @var list<array<string, mixed>> */
     private array $buffer = [];
 
@@ -48,6 +50,7 @@ class AxiomHandler extends AbstractProcessingHandler
         private readonly int $timeout = self::DEFAULT_TIMEOUT,
         private readonly int $shutdownTimeout = self::DEFAULT_SHUTDOWN_TIMEOUT,
         private readonly bool $warnOnSanitization = true,
+        private readonly bool $warnOnSendFailure = true,
     ) {
         parent::__construct($level, $bubble);
         $this->normalizer = new ExceptionContextNormalizer;
@@ -125,24 +128,54 @@ class AxiomHandler extends AbstractProcessingHandler
     protected function send(string $url, string $json): void
     {
         try {
-            $ch = curl_init($url);
-            curl_setopt_array($ch, [
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => $json,
-                CURLOPT_HTTPHEADER => [
-                    'Authorization: Bearer '.$this->apiToken,
-                    'Content-Type: application/json',
-                ],
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => $this->shuttingDown ? $this->shutdownTimeout : $this->timeout,
-                CURLOPT_CONNECTTIMEOUT => 2,
-            ]);
-
-            curl_exec($ch);
-            curl_close($ch);
+            ['status' => $status, 'body' => $body, 'error' => $error] = $this->executeRequest($url, $json);
+            $this->handleResponse($status, $body, $error);
         } catch (\Throwable) {
             // Logging should never crash the app
         }
+    }
+
+    /**
+     * @param  non-empty-string  $url
+     * @param  non-empty-string  $json
+     * @return array{status: int, body: string, error: string}
+     */
+    protected function executeRequest(string $url, string $json): array
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $json,
+            CURLOPT_HTTPHEADER => [
+                'Authorization: Bearer '.$this->apiToken,
+                'Content-Type: application/json',
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $this->shuttingDown ? $this->shutdownTimeout : $this->timeout,
+            CURLOPT_CONNECTTIMEOUT => 2,
+        ]);
+
+        $response = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        return [
+            'status' => $status,
+            'body' => is_string($response) ? $response : '',
+            'error' => $error,
+        ];
+    }
+
+    private function handleResponse(int $status, string $body, string $error): void
+    {
+        if ($status >= 200 && $status < 300) {
+            return;
+        }
+        if (! $this->warnOnSendFailure) {
+            return;
+        }
+        self::warnSendFailureOnce($status, $body, $error);
     }
 
     /**
@@ -229,6 +262,32 @@ class AxiomHandler extends AbstractProcessingHandler
             .'key in the same scope. The later occurrence has overwritten the '
             .'earlier value. This warning fires once per process.',
             $key,
+        ));
+    }
+
+    private static function warnSendFailureOnce(int $status, string $body, string $error): void
+    {
+        if (self::$sendFailureWarned) {
+            return;
+        }
+        self::$sendFailureWarned = true;
+
+        if ($error !== '') {
+            $detail = "curl error: {$error}";
+        } elseif ($body !== '') {
+            $detail = "response body: {$body}";
+        } else {
+            $detail = 'no response body';
+        }
+        if (strlen($detail) > 500) {
+            $detail = substr($detail, 0, 500).'... (truncated)';
+        }
+
+        self::safeErrorLog(sprintf(
+            'AxiomHandler: ingest request failed with HTTP %d (%s). The records '
+            .'in this batch were dropped. This warning fires once per process.',
+            $status,
+            $detail,
         ));
     }
 

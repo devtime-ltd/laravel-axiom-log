@@ -29,6 +29,8 @@ class AxiomHandler extends AbstractProcessingHandler
 
     private static bool $fieldNameSanitizationWarned = false;
 
+    private static bool $fieldNameCollisionWarned = false;
+
     /** @var list<array<string, mixed>> */
     private array $buffer = [];
 
@@ -188,6 +190,9 @@ class AxiomHandler extends AbstractProcessingHandler
                 }
                 $key = str_replace('\\', '__', $key);
             }
+            if (array_key_exists($key, $sanitized) && $this->warnOnSanitization) {
+                self::warnFieldNameCollisionOnce((string) $key);
+            }
             $sanitized[$key] = $this->sanitizeKeys($value);
         }
 
@@ -208,6 +213,22 @@ class AxiomHandler extends AbstractProcessingHandler
             .'JsonSerializable on the object or unwrap it before logging. '
             .'This warning fires once per process.',
             $original,
+        ));
+    }
+
+    private static function warnFieldNameCollisionOnce(string $key): void
+    {
+        if (self::$fieldNameCollisionWarned) {
+            return;
+        }
+        self::$fieldNameCollisionWarned = true;
+
+        error_log(sprintf(
+            'AxiomHandler: field name "%s" appeared in context/extra both '
+            .'literally and as the result of sanitizing a backslash-containing '
+            .'key in the same scope. The later occurrence has overwritten the '
+            .'earlier value. This warning fires once per process.',
+            $key,
         ));
     }
 }

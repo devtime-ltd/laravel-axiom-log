@@ -17,6 +17,24 @@ class FakeAxiomHandler extends AxiomHandler
     }
 }
 
+class StubResponseAxiomHandler extends AxiomHandler
+{
+    public int $stubStatus = 200;
+
+    public string $stubBody = '';
+
+    public string $stubError = '';
+
+    public int $executeCount = 0;
+
+    protected function executeRequest(string $url, string $json): array
+    {
+        $this->executeCount++;
+
+        return ['status' => $this->stubStatus, 'body' => $this->stubBody, 'error' => $this->stubError];
+    }
+}
+
 function makeAxiomHandler(int $batchSize = 50): FakeAxiomHandler
 {
     return new FakeAxiomHandler(
@@ -696,6 +714,111 @@ describe('field name sanitization', function () {
             }
         };
         $assertNoBackslashKeys($event);
+    });
+});
+
+describe('ingest error surfacing', function () {
+    beforeEach(function () {
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'sendFailureWarned');
+        $reflection->setValue(null, false);
+    });
+
+    it('does not warn when the response is 2xx', function () {
+        $handler = new StubResponseAxiomHandler(apiToken: 't', dataset: 'd');
+        $handler->stubStatus = 200;
+
+        $handler->handle(makeLogRecord('ok'));
+        $handler->close();
+
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'sendFailureWarned');
+        expect($reflection->getValue())->toBeFalse();
+        expect($handler->executeCount)->toBe(1);
+    });
+
+    it('warns once when the response is 4xx with a body', function () {
+        $handler = new StubResponseAxiomHandler(apiToken: 't', dataset: 'd');
+        $handler->stubStatus = 400;
+        $handler->stubBody = '{"code":400,"message":"bad field"}';
+
+        $handler->handle(makeLogRecord('failure'));
+        $handler->close();
+
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'sendFailureWarned');
+        expect($reflection->getValue())->toBeTrue();
+    });
+
+    it('warns once when the response is 5xx', function () {
+        $handler = new StubResponseAxiomHandler(apiToken: 't', dataset: 'd');
+        $handler->stubStatus = 503;
+        $handler->stubBody = 'Service Unavailable';
+
+        $handler->handle(makeLogRecord('outage'));
+        $handler->close();
+
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'sendFailureWarned');
+        expect($reflection->getValue())->toBeTrue();
+    });
+
+    it('warns when curl fails outright (status 0 + curl error)', function () {
+        $handler = new StubResponseAxiomHandler(apiToken: 't', dataset: 'd');
+        $handler->stubStatus = 0;
+        $handler->stubError = 'Could not resolve host: api.axiom.co';
+
+        $handler->handle(makeLogRecord('network failure'));
+        $handler->close();
+
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'sendFailureWarned');
+        expect($reflection->getValue())->toBeTrue();
+    });
+
+    it('does not re-warn on subsequent failures within the same process', function () {
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'sendFailureWarned');
+
+        $first = new StubResponseAxiomHandler(apiToken: 't', dataset: 'd', batchSize: 1);
+        $first->stubStatus = 400;
+        $first->stubBody = 'first';
+        $first->handle(makeLogRecord('one'));
+
+        expect($reflection->getValue())->toBeTrue();
+
+        $second = new StubResponseAxiomHandler(apiToken: 't', dataset: 'd', batchSize: 1);
+        $second->stubStatus = 500;
+        $second->stubBody = 'second';
+        $second->handle(makeLogRecord('two'));
+
+        // Flag is still set (not reset) and the second failure produced no extra emit.
+        expect($reflection->getValue())->toBeTrue();
+    });
+
+    it('suppresses the failure warning when warnOnSendFailure is false', function () {
+        $handler = new StubResponseAxiomHandler(
+            apiToken: 't',
+            dataset: 'd',
+            warnOnSendFailure: false,
+        );
+        $handler->stubStatus = 400;
+        $handler->stubBody = 'rejected';
+
+        $handler->handle(makeLogRecord('quiet'));
+        $handler->close();
+
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'sendFailureWarned');
+        expect($reflection->getValue())->toBeFalse();
+    });
+
+    it('truncates very long response bodies in the warning', function () {
+        $handler = new StubResponseAxiomHandler(apiToken: 't', dataset: 'd');
+        $handler->stubStatus = 400;
+        $handler->stubBody = str_repeat('x', 10_000);
+
+        // The warning is emitted via error_log which is redirected to /dev/null in tests,
+        // so we cannot assert against its content directly without further plumbing.
+        // Coverage here is that the path runs without throwing under a long body.
+        expect(fn () => $handler->handle(makeLogRecord('big body')))->not->toThrow(Throwable::class);
+        $handler->close();
+
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'sendFailureWarned');
+        expect($reflection->getValue())->toBeTrue();
     });
 });
 

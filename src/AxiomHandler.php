@@ -206,7 +206,7 @@ class AxiomHandler extends AbstractProcessingHandler
         }
         self::$fieldNameSanitizationWarned = true;
 
-        error_log(sprintf(
+        self::safeErrorLog(sprintf(
             'AxiomHandler: sanitized field name "%s" (replaced "\\" with "__"). '
             .'Axiom rejects backslashes in field names; the most common cause is '
             .'logging an object whose class FQCN contains backslashes. Implement '
@@ -223,12 +223,26 @@ class AxiomHandler extends AbstractProcessingHandler
         }
         self::$fieldNameCollisionWarned = true;
 
-        error_log(sprintf(
+        self::safeErrorLog(sprintf(
             'AxiomHandler: field name "%s" appeared in context/extra both '
             .'literally and as the result of sanitizing a backslash-containing '
             .'key in the same scope. The later occurrence has overwritten the '
             .'earlier value. This warning fires once per process.',
             $key,
         ));
+    }
+
+    /**
+     * Wraps error_log so a custom error handler that promotes E_WARNING to an
+     * exception (e.g. Laravel's, or a user-installed set_error_handler) cannot
+     * crash the request from inside the log handler.
+     */
+    private static function safeErrorLog(string $message): void
+    {
+        try {
+            error_log($message);
+        } catch (\Throwable) {
+            // Logging should never crash the app
+        }
     }
 }

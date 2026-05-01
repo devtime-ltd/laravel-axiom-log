@@ -506,8 +506,11 @@ describe('JsonSerializable normalization', function () {
 
 describe('field name sanitization', function () {
     beforeEach(function () {
-        $reflection = new ReflectionProperty(AxiomHandler::class, 'fieldNameSanitizationWarned');
-        $reflection->setValue(null, false);
+        $sanitization = new ReflectionProperty(AxiomHandler::class, 'fieldNameSanitizationWarned');
+        $sanitization->setValue(null, false);
+
+        $collision = new ReflectionProperty(AxiomHandler::class, 'fieldNameCollisionWarned');
+        $collision->setValue(null, false);
     });
 
     it('replaces backslashes in user-supplied keys with double underscore', function () {
@@ -594,6 +597,54 @@ describe('field name sanitization', function () {
 
         $event = json_decode($handler->sent[0]['json'], true)[0];
         expect($event['context'])->toHaveKey('App__Foo', 'v');
+    });
+
+    it('warns and accepts last-write-wins when sanitization collides with a literal key', function () {
+        $handler = makeAxiomHandler();
+        $handler->handle(makeLogRecord(
+            'collision',
+            context: ['App\\Foo' => 'sanitized', 'App__Foo' => 'literal'],
+        ));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['context'])->toHaveKey('App__Foo', 'literal');
+        expect($event['context'])->toHaveCount(1);
+
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'fieldNameCollisionWarned');
+        expect($reflection->getValue())->toBeTrue();
+    });
+
+    it('detects collision regardless of which key is iterated first', function () {
+        $handler = makeAxiomHandler();
+        $handler->handle(makeLogRecord(
+            'collision-reverse',
+            context: ['App__Foo' => 'literal', 'App\\Foo' => 'sanitized'],
+        ));
+        $handler->close();
+
+        $event = json_decode($handler->sent[0]['json'], true)[0];
+        expect($event['context'])->toHaveKey('App__Foo', 'sanitized');
+        expect($event['context'])->toHaveCount(1);
+
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'fieldNameCollisionWarned');
+        expect($reflection->getValue())->toBeTrue();
+    });
+
+    it('does not warn collision when warnOnSanitization is false', function () {
+        $handler = new FakeAxiomHandler(
+            apiToken: 'test-token',
+            dataset: 'test-dataset',
+            warnOnSanitization: false,
+        );
+        $handler->handle(makeLogRecord(
+            'quiet-collision',
+            context: ['App\\Foo' => 'a', 'App__Foo' => 'b'],
+        ));
+        $handler->close();
+
+        $reflection = new ReflectionProperty(AxiomHandler::class, 'fieldNameCollisionWarned');
+        expect($reflection->getValue())->toBeFalse();
     });
 
     it('produces a payload with no backslashes in any field name', function () {

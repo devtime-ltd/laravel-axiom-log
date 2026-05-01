@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.7.0] - 2026-05-01
+
+### Fixed
+
+- Records were silently dropped when `context` or `extra` contained an object whose class name (FQCN) included backslashes. Monolog's `NormalizerFormatter` wraps objects as `[ClassName => value]`, so a namespaced class became a field name like `extra.sigils.App\Services\SigilCollector`. Axiom's ingest API rejects field names containing `\` with a `400`, and `AxiomHandler::send()` swallowed the error, dropping the entire batch with no observable signal. This affected any Inertia/Livewire/middleware path that put a namespaced object into `Illuminate\Log\Context` or directly into log context, even though the originating object serialized fine via `json_encode()` thanks to `JsonSerializable`. The fix has two layers:
+    - `ExceptionContextNormalizer` now unwraps `JsonSerializable` (non-`Throwable`) values to their `jsonSerialize()` result, matching native `json_encode()` behaviour. Throwables continue to flow through the existing structured exception path.
+    - `AxiomHandler` runs a final pass over normalized `context` / `extra` keys that replaces `\` with `__` (e.g. `App\Foo` becomes `App__Foo`). Probing the ingest API confirmed `\` is the only character Axiom hard-rejects in field names; everything else (dots, spaces, control chars, unicode, emoji) is accepted. Values are not modified. The first sanitization per process emits a one-shot `error_log()` warning so the underlying cause is discoverable.
+
+### Added
+
+- `warnOnSanitization` constructor option on `AxiomHandler` (default `true`). When `true`, the first field-name sanitization per process emits a one-shot warning via `error_log()`. Set to `false` via `handler_with` in `config/logging.php` to suppress the warning while keeping the sanitization itself active. The fired-once flag is process-wide, so a quiet handler will not consume the slot from a noisy handler running alongside it.
+
+### Changed
+
+- `JsonSerializable` objects in `context` / `extra` are no longer wrapped under their class name on the wire. If you previously queried Axiom fields like `extra.foo.SomeClass` for a `JsonSerializable` value, the value now lives directly at `extra.foo`. Non-`JsonSerializable` objects keep the class-name wrap, with backslashes replaced by `__`.
+
 ## [0.6.0] - 2026-04-28
 
 ### Fixed
@@ -86,6 +102,7 @@ Initial release.
 - IP obfuscation via `ObfuscateIp` helper.
 - Database query tracking with configurable slow query threshold.
 
+[0.7.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.3.0...v0.4.0

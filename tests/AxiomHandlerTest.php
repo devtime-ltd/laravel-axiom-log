@@ -490,6 +490,33 @@ describe('JsonSerializable normalization', function () {
         expect($event['context']['outer']['inner'])->toBe('unwrapped');
     });
 
+    it('does not consume an extra depth level when unwrapping a JsonSerializable value', function () {
+        $deep = ['a' => ['b' => ['c' => ['d' => ['e' => ['f' => ['g' => ['h' => ['leaf' => 'v']]]]]]]]];
+
+        $serializable = new class($deep) implements JsonSerializable
+        {
+            public function __construct(private readonly array $data) {}
+
+            public function jsonSerialize(): array
+            {
+                return $this->data;
+            }
+        };
+
+        $plainHandler = makeAxiomHandler();
+        $plainHandler->handle(makeLogRecord('plain', context: ['root' => $deep]));
+        $plainHandler->close();
+
+        $serializableHandler = makeAxiomHandler();
+        $serializableHandler->handle(makeLogRecord('wrapped', context: ['root' => $serializable]));
+        $serializableHandler->close();
+
+        $plainEvent = json_decode($plainHandler->sent[0]['json'], true)[0];
+        $wrappedEvent = json_decode($serializableHandler->sent[0]['json'], true)[0];
+
+        expect($wrappedEvent['context']['root'])->toBe($plainEvent['context']['root']);
+    });
+
     it('still routes Throwables through the structured exception path', function () {
         $handler = makeAxiomHandler();
         $exception = new RuntimeException('boom');

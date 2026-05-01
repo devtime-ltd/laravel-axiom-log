@@ -31,7 +31,7 @@ class ExceptionContextNormalizer extends NormalizerFormatter
             && $data instanceof JsonSerializable
             && ! $data instanceof Throwable
         ) {
-            return parent::normalize($data->jsonSerialize(), $depth + 1);
+            return parent::normalize($data->jsonSerialize(), $depth);
         }
 
         return parent::normalize($data, $depth);

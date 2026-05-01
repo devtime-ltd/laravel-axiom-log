@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.1] - 2026-05-01
+
+### Fixed
+
+- Non-2xx responses from the Axiom ingest API are no longer silently swallowed. `AxiomHandler::send()` previously discarded `curl_exec`'s return value and never inspected the HTTP status, so a `400 invalid field`, `401 unauthorized`, `403 forbidden`, `429 rate limited`, or `5xx outage` all looked identical from the host application: the batch was gone with no observable signal. The handler now captures the status, response body, and any curl-level error, and emits a one-shot `error_log()` warning per process when an ingest request fails (mirroring the field-name sanitization warn-once pattern). Response bodies are truncated to 500 characters in the warning to keep the message bounded.
+
+### Added
+
+- `warnOnSendFailure` constructor option on `AxiomHandler` (default `true`). Set to `false` via `handler_with` in `config/logging.php` to suppress the failure warning while keeping the rest of the handler's resilience intact.
+- `AxiomHandler::executeRequest()` (protected) extracted from `send()` so subclasses can substitute alternative HTTP clients or stub responses for testing without re-implementing the response-handling logic.
+
 ## [0.7.0] - 2026-05-01
 
 ### Fixed
@@ -102,6 +113,7 @@ Initial release.
 - IP obfuscation via `ObfuscateIp` helper.
 - Database query tracking with configurable slow query threshold.
 
+[0.7.1]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.4.0...v0.5.0

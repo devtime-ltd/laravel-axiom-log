@@ -33,7 +33,10 @@ class AxiomHandler extends AbstractProcessingHandler
 
     private static bool $sendFailureWarned = false;
 
-    private static bool $spoolFullWarned = false;
+    /** @var array<string, int> dropped-batch counts keyed by spool file */
+    private static array $spoolDroppedBatches = [];
+
+    private const SPOOL_REWARN_EVERY = 500;
 
     /** @var list<array<string, mixed>> */
     private array $buffer = [];
@@ -153,9 +156,9 @@ class AxiomHandler extends AbstractProcessingHandler
             // drop new batches past the cap rather than filling the disk.
             clearstatcache(true, $file);
             if (is_file($file) && (int) @filesize($file) >= $this->spoolMaxBytes) {
-                if (! self::$spoolFullWarned) {
-                    self::$spoolFullWarned = true;
-                    error_log('laravel-axiom-log: spool file at capacity ('.$this->spoolMaxBytes.' bytes); dropping log batches. Is axiom-log:ship running?');
+                $dropped = self::$spoolDroppedBatches[$file] = (self::$spoolDroppedBatches[$file] ?? 0) + 1;
+                if ($dropped === 1 || $dropped % self::SPOOL_REWARN_EVERY === 0) {
+                    error_log('laravel-axiom-log: spool file at capacity ('.$this->spoolMaxBytes.' bytes); dropped '.$dropped.' batch(es) in this worker. Is axiom-log:ship running?');
                 }
 
                 return;

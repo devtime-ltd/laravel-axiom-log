@@ -33,6 +33,8 @@ class AxiomHandler extends AbstractProcessingHandler
 
     private static bool $sendFailureWarned = false;
 
+    private static bool $spoolFullWarned = false;
+
     /** @var list<array<string, mixed>> */
     private array $buffer = [];
 
@@ -53,6 +55,7 @@ class AxiomHandler extends AbstractProcessingHandler
         private readonly bool $warnOnSendFailure = true,
         private readonly string $transport = 'http',
         private readonly ?string $spoolPath = null,
+        private readonly int $spoolMaxBytes = 64 * 1024 * 1024,
     ) {
         parent::__construct($level, $bubble);
         $this->normalizer = new ExceptionContextNormalizer;
@@ -144,12 +147,26 @@ class AxiomHandler extends AbstractProcessingHandler
                 return;
             }
 
+            $file = $dir.'/'.$this->dataset.'.ndjson';
+
+            // Writer-side bound: if the shipper is dead or falling behind,
+            // drop new batches past the cap rather than filling the disk.
+            clearstatcache(true, $file);
+            if (is_file($file) && (int) @filesize($file) >= $this->spoolMaxBytes) {
+                if (! self::$spoolFullWarned) {
+                    self::$spoolFullWarned = true;
+                    error_log('laravel-axiom-log: spool file at capacity ('.$this->spoolMaxBytes.' bytes); dropping log batches. Is axiom-log:ship running?');
+                }
+
+                return;
+            }
+
             $lines = '';
             foreach ($payload as $event) {
                 $lines .= json_encode($event, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)."\n";
             }
 
-            @file_put_contents($dir.'/'.$this->dataset.'.ndjson', $lines, FILE_APPEND | LOCK_EX);
+            @file_put_contents($file, $lines, FILE_APPEND | LOCK_EX);
         } catch (\Throwable) {
             // Logging should never crash the app
         }

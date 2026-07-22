@@ -150,3 +150,15 @@ test('cap eviction drops oldest files first', function () {
     expect($result['dropped'])->toBe(1)
         ->and($result['shipped'])->toBe(1);
 });
+
+test('writer drops batches when the live spool exceeds the cap', function () {
+    $dir = spoolDir();
+    file_put_contents($dir.'/ds.ndjson', str_repeat('x', 2048)."\n");
+
+    $handler = new AxiomHandler(apiToken: 't', dataset: 'ds', transport: 'spool', spoolPath: $dir, spoolMaxBytes: 1024);
+    $handler->handle(makeRecord('dropped'));
+    $handler->flush();
+
+    expect(filesize($dir.'/ds.ndjson'))->toBe(2049)
+        ->and(file_get_contents($dir.'/ds.ndjson'))->not->toContain('dropped');
+});

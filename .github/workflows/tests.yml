@@ -33,8 +33,12 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # Composer >=2.10 refuses to resolve framework versions with published
+          # security advisories; this matrix exists to test those older lines,
+          # so downgrade the audit from a hard block for CI installs only.
+          composer config policy.advisories.block false
           composer require "illuminate/support:${{ matrix.laravel }}" --no-interaction --no-update
-          composer update --prefer-dist --no-interaction
+          composer update --prefer-dist --no-interaction --no-audit
 
       - name: Run tests
         run: vendor/bin/pest

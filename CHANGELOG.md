@@ -1,6 +1,10 @@
 # Changelog
 
-## [0.9.0] - Unreleased
+## [0.9.0] - 2026-07-22
+
+### Changed
+
+- **Breaking:** the long-running mode moved from `axiom-log:ship --follow` to a dedicated `axiom-log:daemon` command (`--interval` moved with it). `axiom-log:ship` now always does a single pass.
 
 ### Added
 

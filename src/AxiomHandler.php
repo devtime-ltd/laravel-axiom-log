@@ -167,7 +167,7 @@ class AxiomHandler extends AbstractProcessingHandler
             if ($size + strlen($lines) > $this->spoolMaxBytes) {
                 $dropped = self::$spoolDroppedBatches[$file] = (self::$spoolDroppedBatches[$file] ?? 0) + 1;
                 if ($dropped === 1 || $dropped % self::SPOOL_REWARN_EVERY === 0) {
-                    self::safeErrorLog('laravel-axiom-log: spool '.$file.' at capacity ('.$this->spoolMaxBytes.' bytes); dropped '.$dropped.' batch(es) in this worker. Is axiom-log:ship running?');
+                    self::safeErrorLog('laravel-axiom-log: spool '.$file.' at capacity ('.$this->spoolMaxBytes.' bytes); dropped '.$dropped.' batch(es) in this worker. Is axiom-log:daemon running?');
                 }
 
                 return;

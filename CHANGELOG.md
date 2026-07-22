@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.0] - Unreleased
+
+### Added
+
+- Writer-side spool cap: when appending a batch would push the live spool file past `spoolMaxBytes`, the handler drops the batch instead of filling the disk, warning (with the spool path) on the first drop and every 500th thereafter. Complements the shipper-side oldest-first eviction, covering the case where the shipper itself is dead.
+
 ## [0.8.0] - 2026-07-22
 
 ### Added
@@ -122,6 +128,8 @@ Initial release.
 - IP obfuscation via `ObfuscateIp` helper.
 - Database query tracking with configurable slow query threshold.
 
+[0.9.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/devtime-ltd/laravel-axiom-log/compare/v0.5.0...v0.6.0

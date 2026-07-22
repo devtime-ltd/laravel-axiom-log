@@ -60,6 +60,22 @@ Need multiple Axiom channels with different datasets? Just define more entries:
 ],
 ```
 
+## Spool transport
+
+By default each request POSTs its log batch to Axiom synchronously, holding the PHP worker for the round-trip. The `spool` transport appends batches to a local NDJSON file and ships them out-of-band:
+
+```php
+'handler_with' => [
+    // ...
+    'transport' => 'spool',
+    'spoolPath' => storage_path('logs/axiom-spool'),
+],
+```
+
+Run `php artisan axiom-log:daemon --interval=5` alongside your web server (one daemon per container, one `spoolPath` per channel), or schedule one-shot `axiom-log:ship` passes on single-host setups (`->everyFifteenSeconds()->withoutOverlapping()`).
+
+Failed sends are retried next pass, corrupt lines are skipped, and past `spoolMaxBytes` (default 64 MB) the oldest spool files are evicted and new batches dropped with a warning. Unshipped records are lost on container replacement (a few seconds' worth with a healthy shipper). A socket transport for Octane runtimes is tracked in [#18](https://github.com/devtime-ltd/laravel-axiom-log/issues/18).
+
 ## When records are sent
 
 Records are buffered and flushed in any of the following situations:

@@ -6,13 +6,14 @@ namespace DevtimeLtd\LaravelAxiomLog\Console;
 
 use Illuminate\Console\Command;
 
-class ShipCommand extends Command
+class DaemonCommand extends Command
 {
     use ResolvesSpoolShippers;
 
-    protected $signature = 'axiom-log:ship';
+    protected $signature = 'axiom-log:daemon
+                            {--interval=5 : Seconds between shipping passes}';
 
-    protected $description = 'Ship spooled Axiom log events to the ingest API';
+    protected $description = 'Continuously ship spooled Axiom log events to the ingest API';
 
     public function handle(): int
     {
@@ -24,8 +25,9 @@ class ShipCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->shipPass($shippers);
-
-        return self::SUCCESS;
+        while (true) {
+            $this->shipPass($shippers);
+            sleep(max(1, (int) $this->option('interval')));
+        }
     }
 }

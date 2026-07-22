@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.0] - 2026-07-22
+
+### Added
+
+- **Spool transport** (`transport: 'spool'` + `spoolPath` via `handler_with`): the handler appends batches as NDJSON to a local spool file instead of POSTing to the ingest API from the request worker. Measured on a production-shaped Laravel app under load (CenterFrame CF-108), the previous per-request synchronous ingest POST - a fresh TLS connection to api.axiom.co on every request - consumed the majority of PHP-FPM worker capacity: disabling shipping doubled request throughput on a 1-vCPU instance (~5 -> ~10-12 rps) and the same ratio held at 4 vCPU (~18 -> ~35 rps). The spool write costs a sub-millisecond locked append instead.
+- `axiom-log:ship` artisan command ships the spool out-of-band: one-shot for schedulers (`->everyFifteenSeconds()->withoutOverlapping()` recommended) or `--follow --interval=5` as a long-running worker. Batches up to 1,000 events per ingest request and reuses a single connection across batches via the new `IngestClient`.
+- Backpressure: the shipper claims spool files by rename (writers never block), retains files when ingest fails and retries next pass, skips corrupt lines, and evicts oldest-first past `spoolMaxBytes` (default 64 MB) so an extended Axiom outage cannot fill the disk.
+- The default `http` transport is unchanged; existing configurations are unaffected.
+
 ## [0.7.1] - 2026-05-01
 
 ### Fixed

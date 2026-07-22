@@ -21,6 +21,10 @@ class LaravelAxiomLogServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
+        if ($this->app->runningInConsole()) {
+            $this->commands([Console\ShipCommand::class]);
+        }
+
         $events = $this->app['events'];
 
         $flush = static function (): void {

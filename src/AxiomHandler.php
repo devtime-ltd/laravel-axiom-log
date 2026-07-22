@@ -51,6 +51,8 @@ class AxiomHandler extends AbstractProcessingHandler
         private readonly int $shutdownTimeout = self::DEFAULT_SHUTDOWN_TIMEOUT,
         private readonly bool $warnOnSanitization = true,
         private readonly bool $warnOnSendFailure = true,
+        private readonly string $transport = 'http',
+        private readonly ?string $spoolPath = null,
     ) {
         parent::__construct($level, $bubble);
         $this->normalizer = new ExceptionContextNormalizer;
@@ -111,6 +113,12 @@ class AxiomHandler extends AbstractProcessingHandler
         $payload = $this->buffer;
         $this->buffer = [];
 
+        if ($this->transport === 'spool' && $this->spoolPath !== null) {
+            $this->spool($payload);
+
+            return;
+        }
+
         $url = rtrim($this->host, '/').'/v1/datasets/'.$this->dataset.'/ingest';
         try {
             $json = json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
@@ -119,6 +127,32 @@ class AxiomHandler extends AbstractProcessingHandler
         }
 
         $this->send($url, $json);
+    }
+
+    /**
+     * Append the batch to the local NDJSON spool. Web workers pay a local
+     * append instead of a synchronous ingest POST; `axiom-log:ship` ships
+     * the spool out-of-band (see SpoolShipper).
+     *
+     * @param  list<array<string, mixed>>  $payload
+     */
+    protected function spool(array $payload): void
+    {
+        try {
+            $dir = rtrim($this->spoolPath, '/');
+            if (! is_dir($dir) && ! @mkdir($dir, 0775, true) && ! is_dir($dir)) {
+                return;
+            }
+
+            $lines = '';
+            foreach ($payload as $event) {
+                $lines .= json_encode($event, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)."\n";
+            }
+
+            @file_put_contents($dir.'/'.$this->dataset.'.ndjson', $lines, FILE_APPEND | LOCK_EX);
+        } catch (\Throwable) {
+            // Logging should never crash the app
+        }
     }
 
     /**

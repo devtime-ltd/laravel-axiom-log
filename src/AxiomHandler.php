@@ -152,21 +152,25 @@ class AxiomHandler extends AbstractProcessingHandler
 
             $file = $dir.'/'.$this->dataset.'.ndjson';
 
-            // Writer-side bound: if the shipper is dead or falling behind,
-            // drop new batches past the cap rather than filling the disk.
-            clearstatcache(true, $file);
-            if (is_file($file) && (int) @filesize($file) >= $this->spoolMaxBytes) {
-                $dropped = self::$spoolDroppedBatches[$file] = (self::$spoolDroppedBatches[$file] ?? 0) + 1;
-                if ($dropped === 1 || $dropped % self::SPOOL_REWARN_EVERY === 0) {
-                    error_log('laravel-axiom-log: spool file at capacity ('.$this->spoolMaxBytes.' bytes); dropped '.$dropped.' batch(es) in this worker. Is axiom-log:ship running?');
-                }
-
-                return;
-            }
-
             $lines = '';
             foreach ($payload as $event) {
                 $lines .= json_encode($event, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)."\n";
+            }
+
+            // Writer-side bound: if the shipper is dead or falling behind,
+            // drop new batches once file + batch would exceed the cap rather
+            // than filling the disk. Deliberately checked outside the append
+            // lock: concurrent workers can overshoot by at most one batch
+            // each, and exact enforcement would serialize the hot path.
+            clearstatcache(true, $file);
+            $size = is_file($file) ? (int) @filesize($file) : 0;
+            if ($size + strlen($lines) > $this->spoolMaxBytes) {
+                $dropped = self::$spoolDroppedBatches[$file] = (self::$spoolDroppedBatches[$file] ?? 0) + 1;
+                if ($dropped === 1 || $dropped % self::SPOOL_REWARN_EVERY === 0) {
+                    self::safeErrorLog('laravel-axiom-log: spool '.$file.' at capacity ('.$this->spoolMaxBytes.' bytes); dropped '.$dropped.' batch(es) in this worker. Is axiom-log:ship running?');
+                }
+
+                return;
             }
 
             @file_put_contents($file, $lines, FILE_APPEND | LOCK_EX);

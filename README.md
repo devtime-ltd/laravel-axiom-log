@@ -76,6 +76,10 @@ Run `php artisan axiom-log:daemon --interval=5` alongside your web server (one d
 
 Failed sends are retried next pass, corrupt lines are skipped, and past `spoolMaxBytes` (default 64 MB) the oldest spool files are evicted and new batches dropped with a warning. Unshipped records are lost on container replacement (a few seconds' worth with a healthy shipper). A socket transport for Octane runtimes is tracked in [#18](https://github.com/devtime-ltd/laravel-axiom-log/issues/18).
 
+### Laravel Cloud
+
+Add the daemon as a custom background process on the **App** compute cluster (Background processes → New background process → Custom worker), command `php artisan axiom-log:daemon --interval=5`, one process. Cloud spawns it once per replica, on the same instances that write the spool, restarts it if it exits, and bills it as part of the app compute already running.
+
 ## When records are sent
 
 Records are buffered and flushed in any of the following situations:
